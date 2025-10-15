@@ -57,41 +57,63 @@
 
 ### 1. **WHERE** - простые условия
 
-```http
-# Простое значение (автоматически используется оператор =)
+**Простое значение** (автоматически используется оператор `=`):
+
+```
 GET /api/users?where[status]=active
+```
 
-# Массив значений (автоматически используется IN)
+**Массив значений** (автоматически используется `IN`):
+
+```
 GET /api/users?where[status][]=active&where[status][]=pending
+```
 
-# С указанием оператора
+**С указанием оператора**:
+
+```
 GET /api/users?where[age][operator]=>=&where[age][value]=18
+```
 
-# Короткий синтаксис оператора
+**Короткий синтаксис оператора**:
+
+```
 GET /api/users?where[age][op]=>=&where[age][value]=18
 ```
 
 ### 2. **OR WHERE** - условия с ИЛИ
 
-```http
-# Поиск по нескольким полям
-GET /api/users?orWhere[email]=test@example.com&orWhere[phone]=+123456789
+**Поиск по нескольким полям**:
 
-# Использование snake_case
+```
+GET /api/users?orWhere[email]=test@example.com&orWhere[phone]=+123456789
+```
+
+**Использование snake_case**:
+
+```
 GET /api/users?or_where[email]=test@example.com
 ```
 
 ### 3. **WHERE NOT** - отрицание
 
-```http
-# Исключить значения
+**Исключить значения**:
+
+```
 GET /api/users?whereNot[status]=banned
+```
 
-# С оператором (инвертируется автоматически)
+**С оператором** (инвертируется автоматически):
+
+```
 GET /api/users?whereNot[age][operator]=<&whereNot[age][value]=18
-# Выполнится как: WHERE age >= 18
+```
 
-# Альтернативный синтаксис
+Выполнится как: `WHERE age >= 18`
+
+**Альтернативный синтаксис**:
+
+```
 GET /api/users?where_not[role]=guest
 ```
 
@@ -101,29 +123,43 @@ GET /api/users?where_not[role]=guest
 
 ### Сравнение чисел
 
-```http
-# Больше
-GET /api/products?where[price][operator]=>&where[price][value]=100
+**Больше**:
 
-# Меньше или равно
-GET /api/products?where[stock][operator]=<=&where[stock][value]=10
-
-# Диапазон (комбинирование)
-GET /api/products?where[price][operator]=>=&where[price][value]=50
-                  &whereNot[price][operator]=>  &whereNot[price][value]=200
-# Результат: WHERE price >= 50 AND price <= 200
 ```
+GET /api/products?where[price][operator]=>&where[price][value]=100
+```
+
+**Меньше или равно**:
+
+```
+GET /api/products?where[stock][operator]=<=&where[stock][value]=10
+```
+
+**Диапазон** (комбинирование):
+
+```
+GET /api/products?where[price][operator]=>=&where[price][value]=50&whereNot[price][operator]=>&whereNot[price][value]=200
+```
+
+Результат: `WHERE price >= 50 AND price <= 200`
 
 ### IN / NOT IN для чисел
 
-```http
-# Список ID
+**Список ID**:
+
+```
 GET /api/users?where[id][]=1&where[id][]=5&where[id][]=10
+```
 
-# Явное указание оператора IN
+**Явное указание оператора IN**:
+
+```
 GET /api/users?where[id][operator]=in&where[id][values][]=1&where[id][values][]=5
+```
 
-# Исключение значений
+**Исключение значений**:
+
+```
 GET /api/users?where[status_id][operator]=not in&where[status_id][values][]=3&where[status_id][values][]=7
 ```
 
@@ -133,38 +169,55 @@ GET /api/users?where[status_id][operator]=not in&where[status_id][values][]=3&wh
 
 ### LIKE с автоматическими wildcards
 
-```http
-# Содержит (anywhere)
-GET /api/users?where[name][operator]=%like%&where[name][value]=John
-# SQL: WHERE name ILIKE '%John%'
+**Содержит** (anywhere):
 
-# Начинается с
-GET /api/users?where[email][operator]=like%&where[email][value]=admin
-# SQL: WHERE email ILIKE 'admin%'
-
-# Заканчивается на
-GET /api/users?where[email][operator]=%like&where[email][value]=@example.com
-# SQL: WHERE email ILIKE '%@example.com'
-
-# Ручные wildcards (оператор like)
-GET /api/users?where[phone][operator]=like&where[phone][value]=+7%
-# SQL: WHERE phone ILIKE '+7%'
 ```
+GET /api/users?where[name][operator]=%like%&where[name][value]=John
+```
+
+SQL: `WHERE name ILIKE '%John%'`
+
+**Начинается с**:
+
+```
+GET /api/users?where[email][operator]=like%&where[email][value]=admin
+```
+
+SQL: `WHERE email ILIKE 'admin%'`
+
+**Заканчивается на**:
+
+```
+GET /api/users?where[email][operator]=%like&where[email][value]=@example.com
+```
+
+SQL: `WHERE email ILIKE '%@example.com'`
+
+**Ручные wildcards** (оператор like):
+
+```
+GET /api/users?where[phone][operator]=like&where[phone][value]=+7%
+```
+
+SQL: `WHERE phone ILIKE '+7%'`
 
 ### Регистронезависимый поиск
 
-```http
-# С указанием типа string (использует ILIKE вместо LIKE)
+**С указанием типа string** (использует ILIKE вместо LIKE):
+
+```
 GET /api/users?where[name][operator]=%like%&where[name][value]=john&where[name][type]=string
 ```
 
 ### NOT LIKE
 
-```http
-# Исключить строки
-GET /api/users?where[email][operator]=not like&where[email][value]=%test%
-# SQL: WHERE email NOT ILIKE '%test%'
+**Исключить строки**:
+
 ```
+GET /api/users?where[email][operator]=not like&where[email][value]=%test%
+```
+
+SQL: `WHERE email NOT ILIKE '%test%'`
 
 ---
 
@@ -172,21 +225,29 @@ GET /api/users?where[email][operator]=not like&where[email][value]=%test%
 
 ### WHERE HAS - наличие связи
 
-```http
-# Простая проверка наличия
-GET /api/users?whereHas[posts][where][status]=published
+**Простая проверка наличия**:
 
-# Альтернативный синтаксис
+```
+GET /api/users?whereHas[posts][where][status]=published
+```
+
+**Альтернативный синтаксис**:
+
+```
 GET /api/users?where_has[posts][where][status]=published
 ```
 
 ### WHERE DOESNT HAVE - отсутствие связи
 
-```http
-# Пользователи без опубликованных постов
-GET /api/users?whereDoesntHave[posts][where][status]=published
+**Пользователи без опубликованных постов**:
 
-# Альтернативный синтаксис
+```
+GET /api/users?whereDoesntHave[posts][where][status]=published
+```
+
+**Альтернативный синтаксис**:
+
+```
 GET /api/users?where_doesnt_have[posts][where][status]=published
 ```
 
@@ -196,39 +257,36 @@ GET /api/users?where_doesnt_have[posts][where][status]=published
 
 ### Многоуровневая вложенность связей
 
-```http
-# Пользователи с постами, у которых есть комментарии от автора "John"
-GET /api/users?whereHas[posts][whereHas][comments][where][author_name][operator]=%like%
-              &whereHas[posts][whereHas][comments][where][author_name][value]=John
+**Пользователи с постами, у которых есть комментарии от автора "John"**:
+
+```
+GET /api/users?whereHas[posts][whereHas][comments][where][author_name][operator]=%like%&whereHas[posts][whereHas][comments][where][author_name][value]=John
 ```
 
 ### Комбинирование условий в связях
 
-```http
-# Комплексные условия
-GET /api/orders?whereHas[items][where][quantity][operator]=>
-               &whereHas[items][where][quantity][value]=5
-               &whereHas[items][where][price][operator]=<
-               &whereHas[items][where][price][value]=100
-               &whereHas[items][whereNot][status]=cancelled
+**Комплексные условия**:
+
+```
+GET /api/orders?whereHas[items][where][quantity][operator]=>&whereHas[items][where][quantity][value]=5&whereHas[items][where][price][operator]=<&whereHas[items][where][price][value]=100&whereHas[items][whereNot][status]=cancelled
 ```
 
 ### WHERE и OR WHERE в связях
 
-```http
-# Связь с OR условиями
-GET /api/users?whereHas[posts][where][status]=published
-              &whereHas[posts][orWhere][status]=draft
-# SQL: WHERE EXISTS (SELECT * FROM posts WHERE (status = 'published' OR status = 'draft'))
+**Связь с OR условиями**:
+
 ```
+GET /api/users?whereHas[posts][where][status]=published&whereHas[posts][orWhere][status]=draft
+```
+
+SQL: `WHERE EXISTS (SELECT * FROM posts WHERE (status = 'published' OR status = 'draft'))`
 
 ### WHERE NOT в связях
 
-```http
-# Исключение значений в связях
-GET /api/users?whereHas[orders][whereNot][status]=cancelled
-              &whereHas[orders][where][total][operator]=>
-              &whereHas[orders][where][total][value]=1000
+**Исключение значений в связях**:
+
+```
+GET /api/users?whereHas[orders][whereNot][status]=cancelled&whereHas[orders][where][total][operator]=>&whereHas[orders][where][total][value]=1000
 ```
 
 ---
@@ -447,15 +505,14 @@ Content-Type: application/json
 
 ### Базовая пагинация
 
-```http
+```
 GET /api/users?page=2&itemsPerPage=50
 ```
 
 ### Множественная сортировка
 
-```http
-GET /api/users?sortBy[0][key]=created_at&sortBy[0][order]=desc
-              &sortBy[1][key]=name&sortBy[1][order]=asc
+```
+GET /api/users?sortBy[0][key]=created_at&sortBy[0][order]=desc&sortBy[1][key]=name&sortBy[1][order]=asc
 ```
 
 ### В теле запроса
@@ -479,13 +536,24 @@ GET /api/users?sortBy[0][key]=created_at&sortBy[0][order]=desc
 
 ### Выбор полей
 
-```http
-GET /api/users?fields[]=id&fields[]=name&fields[]=email
+**URL параметры**:
 
-# В теле запроса
+```
+GET /api/users?fields[]=id&fields[]=name&fields[]=email
+```
+
+**В теле запроса**:
+
+```json
 {
-  "fields": ["id", "name", "email"],
-  "where": { "status": "active" }
+    "fields": [
+        "id",
+        "name",
+        "email"
+    ],
+    "where": {
+        "status": "active"
+    }
 }
 ```
 
@@ -495,21 +563,27 @@ GET /api/users?fields[]=id&fields[]=name&fields[]=email
 
 ### IS NULL / IS NOT NULL
 
-```http
-# Проверка на NULL
-GET /api/users?where[deleted_at][operator]=is&where[deleted_at][value]=null
+**Проверка на NULL**:
 
-# Проверка на NOT NULL
+```
+GET /api/users?where[deleted_at][operator]=is&where[deleted_at][value]=null
+```
+
+**Проверка на NOT NULL**:
+
+```
 GET /api/users?where[email_verified_at][operator]=is&where[email_verified_at][value]=not_null
 ```
 
 ### Поиск по кастомным полям
 
-```http
-# Поиск с автоматическим ILIKE по нескольким полям (параметр filter)
-GET /api/users?filter[name]=John&filter[email]=example.com
-# Выполняется как: WHERE (name ILIKE '%John%' OR email ILIKE '%example.com%')
+Поиск с автоматическим ILIKE по нескольким полям (параметр `filter`):
+
 ```
+GET /api/users?filter[name]=John&filter[email]=example.com
+```
+
+Выполняется как: `WHERE (name ILIKE '%John%' OR email ILIKE '%example.com%')`
 
 ---
 
