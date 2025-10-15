@@ -202,10 +202,10 @@ SQL: `WHERE email ILIKE '%@example.com'`
 **Ручные wildcards** (оператор like):
 
 ```
-GET /api/users?where[phone][operator]=like&where[phone][value]=+7%
+GET /api/users?where[phone][operator]=like&where[phone][value]=+380%
 ```
 
-SQL: `WHERE phone ILIKE '+7%'`
+SQL: `WHERE phone ILIKE '+380%'`
 
 ### Регистронезависимый поиск
 
