@@ -92,7 +92,7 @@ GET /api/users?where[age][op]=>=&where[age][value]=18
 **Поиск по нескольким полям**:
 
 ```
-GET /api/users?orWhere[email]=test@example.com&orWhere[phone]=+123456789
+GET /api/users?orWhere[email]=test@example.com&orWhere[phone]=+380123456789
 ```
 
 **Использование snake_case**:
@@ -331,7 +331,7 @@ Content-Type: application/json
 
 #### 2. **Form Data** (multipart/form-data)
 
-```http
+```text
 POST /api/users
 Content-Type: multipart/form-data
 
@@ -344,7 +344,7 @@ itemsPerPage=50
 
 #### 3. **URL Encoded** (application/x-www-form-urlencoded)
 
-```http
+```text
 POST /api/users
 Content-Type: application/x-www-form-urlencoded
 
