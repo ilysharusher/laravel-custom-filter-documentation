@@ -49,8 +49,8 @@
 '<='         // LESS_THAN_OR_EQUAL - меньше или равно
 'like'       // LIKE - содержит (с ручными %)
 '%like%'     // LIKE_ANYWHERE - содержит в любом месте
-'%like'      // LIKE_LEFT - заканчивается на
-'like%'      // LIKE_RIGHT - начинается с
+'%like'      // LIKE_ENDS_WITH - заканчивается на
+'like%'      // LIKE_STARTS_WITH - начинается с
 'not like'   // NOT_LIKE - не содержит
 'in'         // IN - входит в список
 'not in'     // NOT_IN - не входит в список
@@ -662,7 +662,7 @@ Content-Type: application/json
     },
     "phone": {
       "operator": "like%",
-      "value": "+1"
+      "value": "+380"
     }
   },
   "whereHas": {
