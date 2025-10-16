@@ -1,502 +1,123 @@
-# 🔍 Система фильтрации Laravel
+# CustomQueryBuilder - Документация фильтрации 🔍
 
-Мощная и гибкая система фильтрации запросов с поддержкой вложенных условий, различных операторов сравнения и передачи
-фильтров через URL или тело запроса.
+> Кастомный построитель запросов для Laravel с расширенными возможностями фильтрации, сортировки и пагинации через
+> параметры запроса.
 
 ---
 
-## 📋 Оглавление
+## 📑 Содержание
 
-- [Основные возможности](#-основные-возможности)
+- [Быстрый старт](#-быстрый-старт)
+- [Базовые параметры](#-базовые-параметры)
+- [Методы запросов (GET/POST)](#-методы-запросов-getpost)
+- [Фильтры WHERE](#-фильтры-where)
 - [Операторы сравнения](#-операторы-сравнения)
-- [Базовые фильтры](#-базовые-фильтры)
-- [Операторы для чисел](#-операторы-для-чисел)
-- [Операторы для строк](#-операторы-для-строк)
-- [Фильтрация по связям](#-фильтрация-по-связям)
-- [Вложенные условия](#-вложенные-условия)
-- [Передача фильтров в теле запроса](#-передача-фильтров-в-теле-запроса)
-- [Пагинация и сортировка](#-пагинация-и-сортировка)
-- [Специальные операторы](#-специальные-операторы)
-- [Примеры реальных сценариев](#-примеры-реальных-сценариев)
-- [Использование в коде](#-использование-в-коде)
-- [Конфигурация](#️-конфигурация)
+- [BETWEEN фильтры](#-between-фильтры)
+- [Фильтры связей](#-фильтры-связей)
+- [Поисковый фильтр](#-поисковый-фильтр)
+- [Сортировка](#-сортировка)
+- [Пагинация](#-пагинация)
+- [Комплексные примеры](#-комплексные-примеры)
+- [Advanced Filter](#-advanced-filter-устаревший)
+- [Алиасы параметров](#-алиасы-параметров)
 - [Архитектура](#-архитектура)
-- [Преимущества](#-преимущества)
+- [Примечания](#-примечания)
 
 ---
 
-## ✨ Основные возможности
+## 🚀 Быстрый старт
 
-- **Множество операторов**: `=`, `!=`, `>`, `<`, `>=`, `<=`, `like`, `in`, `not in`, `is null`
-- **Вложенные условия**: комбинирование `where`, `orWhere`, `whereNot`
-- **Фильтрация по связям**: `whereHas`, `whereDoesntHave` с вложенными условиями
-- **Регистронезависимый поиск**: автоматический `ILIKE` для PostgreSQL
-- **POST-фильтры**: передача сложных фильтров через тело запроса
-- **Пагинация**: встроенная поддержка с настройкой `itemsPerPage`
-
----
-
-## 🎯 Операторы сравнения
+### Использование в модели
 
 ```php
-// Enum: App\Support\QueryBuilders\Enums\AdvancedFilterOperator
+use App\Support\QueryBuilders\CustomQueryBuilder;
+use Illuminate\Database\Eloquent\Model;
 
-'='          // EQUALS - равно
-'!='         // NOT_EQUALS - не равно
-'>'          // GREATER_THAN - больше
-'<'          // LESS_THAN - меньше
-'>='         // GREATER_THAN_OR_EQUAL - больше или равно
-'<='         // LESS_THAN_OR_EQUAL - меньше или равно
-'like'       // LIKE - содержит (с ручными %)
-'%like%'     // LIKE_ANYWHERE - содержит в любом месте
-'%like'      // LIKE_ENDS_WITH - заканчивается на
-'like%'      // LIKE_STARTS_WITH - начинается с
-'not like'   // NOT_LIKE - не содержит
-'in'         // IN - входит в список
-'not in'     // NOT_IN - не входит в список
-'is'         // IS - проверка на null/not_null
-```
-
----
-
-## 📌 Базовые фильтры
-
-### 1. **WHERE** - простые условия
-
-**Простое значение** (автоматически используется оператор `=`):
-
-```
-GET /api/users?where[status]=active
-```
-
-**Массив значений** (автоматически используется `IN`):
-
-```
-GET /api/users?where[status][]=active&where[status][]=pending
-```
-
-**С указанием оператора**:
-
-```
-GET /api/users?where[age][operator]=>=&where[age][value]=18
-```
-
-**Короткий синтаксис оператора**:
-
-```
-GET /api/users?where[age][op]=>=&where[age][value]=18
-```
-
-### 2. **OR WHERE** - условия с ИЛИ
-
-**Поиск по нескольким полям**:
-
-```
-GET /api/users?orWhere[email]=test@example.com&orWhere[phone]=+380123456789
-```
-
-**Использование snake_case**:
-
-```
-GET /api/users?or_where[email]=test@example.com
-```
-
-### 3. **WHERE NOT** - отрицание
-
-**Исключить значения**:
-
-```
-GET /api/users?whereNot[status]=banned
-```
-
-**С оператором** (инвертируется автоматически):
-
-```
-GET /api/users?whereNot[age][operator]=<&whereNot[age][value]=18
-```
-
-Выполнится как: `WHERE age >= 18`
-
-**Альтернативный синтаксис**:
-
-```
-GET /api/users?where_not[role]=guest
-```
-
----
-
-## 🔢 Операторы для чисел
-
-### Сравнение чисел
-
-**Больше**:
-
-```
-GET /api/products?where[price][operator]=>&where[price][value]=100
-```
-
-**Меньше или равно**:
-
-```
-GET /api/products?where[stock][operator]=<=&where[stock][value]=10
-```
-
-**Диапазон** (комбинирование):
-
-```
-GET /api/products?where[price][operator]=>=&where[price][value]=50&whereNot[price][operator]=>&whereNot[price][value]=200
-```
-
-Результат: `WHERE price >= 50 AND price <= 200`
-
-### IN / NOT IN для чисел
-
-**Список ID**:
-
-```
-GET /api/users?where[id][]=1&where[id][]=5&where[id][]=10
-```
-
-**Явное указание оператора IN**:
-
-```
-GET /api/users?where[id][operator]=in&where[id][values][]=1&where[id][values][]=5
-```
-
-**Исключение значений**:
-
-```
-GET /api/users?where[status_id][operator]=not in&where[status_id][values][]=3&where[status_id][values][]=7
-```
-
----
-
-## 📝 Операторы для строк
-
-### LIKE с автоматическими wildcards
-
-**Содержит** (anywhere):
-
-```
-GET /api/users?where[name][operator]=%like%&where[name][value]=John
-```
-
-SQL: `WHERE name ILIKE '%John%'`
-
-**Начинается с**:
-
-```
-GET /api/users?where[email][operator]=like%&where[email][value]=admin
-```
-
-SQL: `WHERE email ILIKE 'admin%'`
-
-**Заканчивается на**:
-
-```
-GET /api/users?where[email][operator]=%like&where[email][value]=@example.com
-```
-
-SQL: `WHERE email ILIKE '%@example.com'`
-
-**Ручные wildcards** (оператор like):
-
-```
-GET /api/users?where[phone][operator]=like&where[phone][value]=+380%
-```
-
-SQL: `WHERE phone ILIKE '+380%'`
-
-### Регистронезависимый поиск
-
-**С указанием типа string** (использует ILIKE вместо LIKE):
-
-```
-GET /api/users?where[name][operator]=%like%&where[name][value]=john&where[name][type]=string
-```
-
-### NOT LIKE
-
-**Исключить строки**:
-
-```
-GET /api/users?where[email][operator]=not like&where[email][value]=%test%
-```
-
-SQL: `WHERE email NOT ILIKE '%test%'`
-
----
-
-## 🔗 Фильтрация по связям
-
-### WHERE HAS - наличие связи
-
-**Простая проверка наличия**:
-
-```
-GET /api/users?whereHas[posts][where][status]=published
-```
-
-**Альтернативный синтаксис**:
-
-```
-GET /api/users?where_has[posts][where][status]=published
-```
-
-### WHERE DOESNT HAVE - отсутствие связи
-
-**Пользователи без опубликованных постов**:
-
-```
-GET /api/users?whereDoesntHave[posts][where][status]=published
-```
-
-**Альтернативный синтаксис**:
-
-```
-GET /api/users?where_doesnt_have[posts][where][status]=published
-```
-
----
-
-## 🎭 Вложенные условия
-
-### Многоуровневая вложенность связей
-
-**Пользователи с постами, у которых есть комментарии от автора "John"**:
-
-```
-GET /api/users?whereHas[posts][whereHas][comments][where][author_name][operator]=%like%&whereHas[posts][whereHas][comments][where][author_name][value]=John
-```
-
-### Комбинирование условий в связях
-
-**Комплексные условия**:
-
-```
-GET /api/orders?whereHas[items][where][quantity][operator]=>&whereHas[items][where][quantity][value]=5&whereHas[items][where][price][operator]=<&whereHas[items][where][price][value]=100&whereHas[items][whereNot][status]=cancelled
-```
-
-### WHERE и OR WHERE в связях
-
-**Связь с OR условиями**:
-
-```
-GET /api/users?whereHas[posts][where][status]=published&whereHas[posts][orWhere][status]=draft
-```
-
-SQL: `WHERE EXISTS (SELECT * FROM posts WHERE (status = 'published' OR status = 'draft'))`
-
-### WHERE NOT в связях
-
-**Исключение значений в связях**:
-
-```
-GET /api/users?whereHas[orders][whereNot][status]=cancelled&whereHas[orders][where][total][operator]=>&whereHas[orders][where][total][value]=1000
-```
-
----
-
-## 📮 Передача фильтров в теле запроса
-
-Система **полностью поддерживает** передачу фильтров в теле запроса для любых сложных запросов.
-
-### 🔧 Поддерживаемые HTTP методы:
-
-- ✅ **POST** - основной метод для длинных фильтров
-- ✅ **PUT** / **PATCH** - можно использовать для обновления с фильтрацией
-- ✅ **GET** - только через URL параметры
-- ✅ **DELETE** - можно передавать фильтры в теле
-
-### 📦 Поддерживаемые форматы:
-
-#### 1. **JSON** (рекомендуется)
-
-```http
-POST /api/users
-Content-Type: application/json
-
+class Product extends Model
 {
-  "where": {
-    "status": "active",
-    "age": {
-      "operator": ">=",
-      "value": 18
+    public function newEloquentBuilder($query): CustomQueryBuilder
+    {
+        return new CustomQueryBuilder($query);
     }
-  },
-  "page": 1,
-  "itemsPerPage": 50
 }
 ```
 
-#### 2. **Form Data** (multipart/form-data)
+### Применение фильтров
 
-```text
-POST /api/users
-Content-Type: multipart/form-data
+```php
+// Простая фильтрация и пагинация
+Product::query()->paginateFiltered('products.created_at');
 
-where[status]=active
-where[age][operator]=>=
-where[age][value]=18
-page=1
-itemsPerPage=50
+// Только фильтрация без пагинации
+Product::query()->filter('products.created_at')->get();
 ```
-
-#### 3. **URL Encoded** (application/x-www-form-urlencoded)
-
-```text
-POST /api/users
-Content-Type: application/x-www-form-urlencoded
-
-where[status]=active&where[age][operator]=>=&where[age][value]=18&page=1&itemsPerPage=50
-```
-
-### 🎯 Важно:
-
-- Laravel автоматически парсит **все форматы** через `request()->input()`
-- Можно **комбинировать** URL параметры и тело запроса (они мёрджатся)
-- Приоритет имеют данные из **тела запроса** при совпадении ключей
 
 ---
 
-### Примеры использования
+## ⚙️ Базовые параметры
 
-Для длинных и сложных фильтров используйте **POST запросы с JSON**:
-
-### Базовый пример
+### `fields` - Выбор полей
 
 ```http
-POST /api/users
-Content-Type: application/json
+GET /products?fields[]=id&fields[]=name&fields[]=price
+```
 
+### `page` - Номер страницы
+
+```http
+GET /products?page=2
+```
+
+### `itemsPerPage` - Количество элементов на странице
+
+```http
+GET /products?itemsPerPage=50
+```
+
+---
+
+## 🌐 Методы запросов (GET/POST)
+
+Фильтры работают **одинаково** как с GET параметрами, так и с POST JSON запросами!
+
+### GET запрос с query параметрами
+
+```http
+GET /products?where[status]=active&where[price][operator]=>&where[price][value]=100
+```
+
+### POST запрос с JSON телом
+
+```http
+POST /products
+Content-Type: application/json
+```
+
+```json
 {
   "where": {
     "status": "active",
-    "age": {
-      "operator": ">=",
-      "value": 18
+    "price": {
+      "operator": ">",
+      "value": 100
     }
   },
-  "whereNot": {
-    "role": "guest"
-  },
-  "page": 1,
-  "itemsPerPage": 50
-}
-```
-
-### Сложный фильтр со связями
-
-```http
-POST /api/orders
-Content-Type: application/json
-
-{
-  "where": {
+  "whereBetween": {
     "created_at": {
-      "operator": ">=",
-      "value": "2025-01-01"
-    },
-    "status": ["pending", "processing", "completed"]
-  },
-  "whereHas": {
-    "customer": {
-      "where": {
-        "country": "US",
-        "email": {
-          "operator": "%like%",
-          "value": "@example.com"
-        }
-      }
-    },
-    "items": {
-      "where": {
-        "price": {
-          "operator": ">",
-          "value": 50
-        }
-      },
-      "whereNot": {
-        "status": "cancelled"
-      }
-    }
-  },
-  "whereDoesntHave": {
-    "refunds": {}
-  },
-  "sortBy": [
-    {
-      "key": "created_at",
-      "order": "desc"
-    }
-  ],
-  "itemsPerPage": 25
-}
-```
-
-### Очень сложный вложенный фильтр
-
-```http
-POST /api/projects
-Content-Type: application/json
-
-{
-  "where": {
-    "status": {
-      "operator": "in",
-      "values": ["active", "planning", "in_progress"]
-    },
-    "budget": {
-      "operator": ">=",
-      "value": 10000
+      "from": "2024-01-01",
+      "to": "2024-12-31"
     }
   },
   "whereHas": {
-    "tasks": {
+    "category": {
       "where": {
-        "priority": "high"
-      },
-      "whereHas": {
-        "assignee": {
-          "where": {
-            "department": "development",
-            "experience_level": {
-              "operator": ">=",
-              "value": 3
-            }
-          },
-          "whereDoesntHave": {
-            "vacations": {
-              "where": {
-                "start_date": {
-                  "operator": "<=",
-                  "value": "2025-12-31"
-                },
-                "end_date": {
-                  "operator": ">=",
-                  "value": "2025-01-01"
-                }
-              }
-            }
-          }
-        }
-      },
-      "whereNot": {
-        "status": ["cancelled", "completed"]
+        "name": "Electronics"
       }
     }
   },
-  "orWhere": {
-    "manager_id": 5,
-    "deputy_manager_id": 5
-  },
   "sortBy": [
     {
-      "key": "priority",
-      "order": "desc"
-    },
-    {
-      "key": "created_at",
+      "key": "price",
       "order": "asc"
     }
   ],
@@ -505,346 +126,772 @@ Content-Type: application/json
 }
 ```
 
----
+### 💡 Преимущества POST с JSON
 
-## 📊 Пагинация и сортировка
-
-### Базовая пагинация
-
-```
-GET /api/users?page=2&itemsPerPage=50
-```
-
-### Множественная сортировка
-
-```
-GET /api/users?sortBy[0][key]=created_at&sortBy[0][order]=desc&sortBy[1][key]=name&sortBy[1][order]=asc
-```
-
-### В теле запроса
-
-```json
-{
-    "sortBy": [
-        {
-            "key": "priority",
-            "order": "desc"
-        },
-        {
-            "key": "name",
-            "order": "asc"
-        }
-    ],
-    "page": 1,
-    "itemsPerPage": 100
-}
-```
-
-### Выбор полей
-
-**URL параметры**:
-
-```
-GET /api/users?fields[]=id&fields[]=name&fields[]=email
-```
-
-**В теле запроса**:
-
-```json
-{
-    "fields": [
-        "id",
-        "name",
-        "email"
-    ],
-    "where": {
-        "status": "active"
-    }
-}
-```
+| Преимущество        | Описание                              |
+|---------------------|---------------------------------------|
+| ✅ Удобство          | Идеально для сложных фильтров         |
+| ✅ Читабельность     | Чистая структура данных               |
+| ✅ Вложенность       | Легко работать с вложенными объектами |
+| ✅ Без ограничений   | Нет лимита на длину URL               |
+| ✅ Frontend-friendly | Простая интеграция с frontend         |
 
 ---
 
-## 🔍 Специальные операторы
+## 🔎 Фильтры WHERE
 
-### IS NULL / IS NOT NULL
+### `where` - Базовая фильтрация
 
-**Проверка на NULL**:
+<details>
+<summary><b>Простое равенство</b></summary>
 
-```
-GET /api/users?where[deleted_at][operator]=is&where[deleted_at][value]=null
-```
-
-**Проверка на NOT NULL**:
-
-```
-GET /api/users?where[email_verified_at][operator]=is&where[email_verified_at][value]=not_null
-```
-
-### Поиск по кастомным полям
-
-Поиск с автоматическим ILIKE по нескольким полям (параметр `filter`):
-
-```
-GET /api/users?filter[name]=John&filter[email]=example.com
-```
-
-Выполняется как: `WHERE (name ILIKE '%John%' OR email ILIKE '%example.com%')`
-
----
-
-## 💡 Примеры реальных сценариев
-
-### 1. E-commerce: Фильтр товаров
+**GET:**
 
 ```http
-POST /api/products
-Content-Type: application/json
+GET /products?where[status]=active
+```
 
+**POST JSON:**
+
+```json
 {
   "where": {
-    "status": "active",
-    "price": {
-      "operator": ">=",
-      "value": 10
-    }
-  },
-  "whereNot": {
+    "status": "active"
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>С оператором IN (массив значений)</b></summary>
+
+**GET:**
+
+```http
+GET /products?where[status][]=active&where[status][]=pending
+```
+
+**POST JSON:**
+
+```json
+{
+  "where": {
+    "status": ["active", "pending"]
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>С явным оператором</b></summary>
+
+**GET:**
+
+```http
+GET /products?where[price][operator]=>&where[price][value]=100
+```
+
+**POST JSON:**
+
+```json
+{
+  "where": {
     "price": {
       "operator": ">",
-      "value": 1000
+      "value": 100
+    }
+  }
+}
+```
+
+</details>
+
+### ➕ `orWhere` - Условие ИЛИ
+
+**GET:**
+
+```http
+GET /products?orWhere[status]=active&orWhere[status]=pending
+```
+
+**POST JSON:**
+
+```json
+{
+  "orWhere": {
+    "status": ["active", "pending"]
+  }
+}
+```
+
+### ⛔ `whereNot` - Исключение значений
+
+**GET:**
+
+```http
+GET /products?whereNot[status]=deleted
+```
+
+**POST JSON:**
+
+```json
+{
+  "whereNot": {
+    "status": "deleted",
+    "id": [5, 10]
+  }
+}
+```
+
+---
+
+## 🔢 Операторы сравнения
+
+### Доступные операторы
+
+| Оператор   | Описание         | Пример                                                             |
+|------------|------------------|--------------------------------------------------------------------|
+| `=`        | Равно            | `where[status][operator]==&where[status][value]=active`            |
+| `!=`       | Не равно         | `where[status][operator]=!=&where[status][value]=deleted`          |
+| `>`        | Больше           | `where[price][operator]=>&where[price][value]=100`                 |
+| `<`        | Меньше           | `where[price][operator]=<&where[price][value]=500`                 |
+| `>=`       | Больше или равно | `where[stock][operator]=>=%where[stock][value]=10`                 |
+| `<=`       | Меньше или равно | `where[discount][operator]=<=&where[discount][value]=50`           |
+| `like`     | LIKE             | `where[name][operator]=like&where[name][value]=Phone%`             |
+| `not like` | NOT LIKE         | `where[name][operator]=not like&where[name][value]=%test%`         |
+| `%like%`   | LIKE с wildcards | `where[name][operator]=%like%&where[name][value]=phone`            |
+| `like%`    | Начинается с     | `where[name][operator]=like%&where[name][value]=Apple`             |
+| `%like`    | Заканчивается на | `where[name][operator]=%like&where[name][value]=Pro`               |
+| `in`       | IN (список)      | `where[id][operator]=in&where[id][value][]=1&where[id][value][]=2` |
+| `not in`   | NOT IN           | `where[status][operator]=not in&where[status][values][]=deleted`   |
+| `is`       | IS NULL/NOT NULL | `where[deleted_at][operator]=is&where[deleted_at][value]=null`     |
+
+### Примеры использования
+
+<details>
+<summary><b>GET запросы</b></summary>
+
+```http
+# Цена больше 100
+GET /products?where[price][operator]=>&where[price][value]=100
+
+# Название содержит "phone"
+GET /products?where[name][operator]=%like%&where[name][value]=phone
+
+# Статус в списке значений
+GET /products?where[status][operator]=in&where[status][value][]=active&where[status][value][]=pending
+
+# Проверка на NULL
+GET /products?where[deleted_at][operator]=is&where[deleted_at][value]=null
+```
+
+</details>
+
+<details>
+<summary><b>POST JSON</b></summary>
+
+```json
+{
+  "where": {
+    "price": {
+      "operator": ">",
+      "value": 100
+    },
+    "name": {
+      "operator": "%like%",
+      "value": "phone"
+    },
+    "status": {
+      "operator": "in",
+      "value": ["active", "pending"]
+    },
+    "deleted_at": {
+      "operator": "is",
+      "value": "null"
+    }
+  }
+}
+```
+
+</details>
+
+### Регистронезависимый поиск
+
+> **Tip:** Добавьте параметр `type=string` для ILIKE вместо LIKE
+
+**GET:**
+
+```http
+GET /products?where[name][operator]=like&where[name][value]=phone&where[name][type]=string
+```
+
+**POST JSON:**
+
+```json
+{
+  "where": {
+    "name": {
+      "operator": "like",
+      "value": "phone",
+      "type": "string"
+    }
+  }
+}
+```
+
+---
+
+## 📏 BETWEEN фильтры
+
+### `whereBetween` - Диапазон значений
+
+<details>
+<summary><b>Индексированный массив</b></summary>
+
+**GET:**
+
+```http
+GET /products?whereBetween[price][]=100&whereBetween[price][]=500
+```
+
+**POST JSON:**
+
+```json
+{
+  "whereBetween": {
+    "price": [100, 500]
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>Ассоциативный массив (min/max)</b></summary>
+
+**POST JSON:**
+
+```json
+{
+  "whereBetween": {
+    "price": {
+      "min": 100,
+      "max": 500
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>Ассоциативный массив (from/to)</b></summary>
+
+**POST JSON:**
+
+```json
+{
+  "whereBetween": {
+    "created_at": {
+      "from": "2024-01-01",
+      "to": "2024-12-31"
+    }
+  }
+}
+```
+
+</details>
+
+### Другие BETWEEN варианты
+
+```http
+# OR WHERE BETWEEN
+GET /products?orWhereBetween[price][]=50&orWhereBetween[price][]=200
+
+# WHERE NOT BETWEEN
+GET /products?whereNotBetween[price][min]=1000&whereNotBetween[price][max]=5000
+
+# OR WHERE NOT BETWEEN
+GET /products?orWhereNotBetween[stock][]=0&orWhereNotBetween[stock][]=5
+```
+
+<details>
+<summary><b>POST JSON пример</b></summary>
+
+```json
+{
+  "orWhereBetween": {
+    "price": [50, 200]
+  },
+  "whereNotBetween": {
+    "price": {
+      "min": 1000,
+      "max": 5000
     }
   },
+  "orWhereNotBetween": {
+    "stock": [0, 5]
+  }
+}
+```
+
+</details>
+
+---
+
+## 🔗 Фильтры связей
+
+### `whereHas` - Фильтр по существующей связи
+
+<details>
+<summary><b>Простая проверка существования</b></summary>
+
+**GET:**
+
+```http
+GET /products?whereHas[category]=[]
+```
+
+**POST JSON:**
+
+```json
+{
+  "whereHas": {
+    "category": []
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>С условиями на связанную модель</b></summary>
+
+**GET:**
+
+```http
+GET /products?whereHas[category][where][name]=Electronics
+```
+
+**POST JSON:**
+
+```json
+{
   "whereHas": {
     "category": {
       "where": {
-        "slug": ["electronics", "computers"]
+        "name": "Electronics"
       }
-    },
-    "reviews": {
-      "where": {
-        "rating": {
-          "operator": ">=",
-          "value": 4
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>Вложенные связи</b></summary>
+
+**POST JSON:**
+
+```json
+{
+  "whereHas": {
+    "category": {
+      "whereHas": {
+        "parent": {
+          "where": {
+            "name": "Main"
+          }
         }
       }
     }
-  },
+  }
+}
+```
+
+</details>
+
+### ❌ `whereDoesntHave` - Фильтр по отсутствующей связи
+
+**GET:**
+
+```http
+# Товары без заказов
+GET /products?whereDoesntHave[orders]=[]
+
+# Товары без активных заказов
+GET /products?whereDoesntHave[orders][where][status]=active
+```
+
+**POST JSON:**
+
+```json
+{
   "whereDoesntHave": {
-    "outOfStockNotifications": {}
-  },
+    "orders": [],
+    "reviews": {
+      "where": {
+        "rating": {
+          "operator": "<",
+          "value": 3
+        }
+      }
+    }
+  }
+}
+```
+
+### Поддерживаемые условия в связях
+
+Внутри `whereHas`/`whereDoesntHave` доступны:
+
+- `where` - базовые условия
+- `orWhere` - OR условия
+- `whereNot` - исключения
+- `whereBetween` - диапазоны
+- `orWhereBetween` - OR диапазоны
+- `whereNotBetween` - исключение диапазонов
+- `orWhereNotBetween` - OR исключение диапазонов
+- `filter` - поиск
+- `whereHas` - вложенные связи
+- `whereDoesntHave` - вложенные исключения
+
+---
+
+## 🔍 Поисковый фильтр
+
+### `filter` - Универсальный поиск по полям
+
+Ищет по нескольким полям с использованием ILIKE:
+
+**GET:**
+
+```http
+GET /products?filter[name]=phone&filter[sku]=12345
+```
+
+**POST JSON:**
+
+```json
+{
+  "filter": {
+    "name": "phone",
+    "sku": "12345"
+  }
+}
+```
+
+### Добавление кастомных условий поиска
+
+```php
+// В контроллере
+Product::query()
+    ->addRawFilterConditions([
+        'products.description' => 'products.description ILIKE ?'
+    ])
+    ->paginateFiltered();
+```
+
+Теперь `filter[search]` будет искать также и по описанию:
+
+```json
+{
+  "filter": {
+    "search": "smartphone"
+  }
+}
+```
+
+---
+
+## 📊 Сортировка
+
+### `sortBy` - Множественная сортировка
+
+**GET:**
+
+```http
+# Сортировка по одному полю
+GET /products?sortBy[0][key]=price&sortBy[0][order]=desc
+
+# Сортировка по нескольким полям
+GET /products?sortBy[0][key]=category&sortBy[0][order]=asc&sortBy[1][key]=price&sortBy[1][order]=desc
+```
+
+**POST JSON:**
+
+```json
+{
   "sortBy": [
     {
-      "key": "popularity",
+      "key": "category",
+      "order": "asc"
+    },
+    {
+      "key": "price",
       "order": "desc"
     }
   ]
 }
 ```
 
-### 2. CRM: Поиск клиентов
+### Сортировка по умолчанию
+
+Если сортировка не указана, используется:
+
+| Параметр        | Значение                                         |
+|-----------------|--------------------------------------------------|
+| **Столбец**     | Первичный ключ модели (обычно `id`)              |
+| **Направление** | `desc` (или из `Model::$DEFAULT_SORT_DIRECTION`) |
+
+---
+
+## 📄 Пагинация
+
+### Параметры
+
+**GET:**
 
 ```http
-POST /api/customers
-Content-Type: application/json
+GET /products?page=2&itemsPerPage=25
+```
 
+**POST JSON:**
+
+```json
 {
-  "where": {
-    "created_at": {
-      "operator": ">=",
-      "value": "2025-01-01"
-    }
+  "page": 2,
+  "itemsPerPage": 25
+}
+```
+
+### Значения по умолчанию
+
+| Параметр       | Значение по умолчанию          |
+|----------------|--------------------------------|
+| `page`         | `1`                            |
+| `itemsPerPage` | `Model->getPerPage()` или `20` |
+
+### Без пагинации
+
+```php
+Product::query()->filter()->get();
+```
+
+---
+
+## 🎯 Комплексные примеры
+
+### Пример 1: Поиск товаров с фильтрацией 🛍️
+
+```json
+{
+  "filter": {
+    "name": "phone"
   },
-  "orWhere": {
-    "email": {
-      "operator": "%like%",
-      "value": "@corporate.com"
-    },
-    "phone": {
-      "operator": "like%",
-      "value": "+380"
+  "where": {
+    "status": "active"
+  },
+  "whereBetween": {
+    "price": {
+      "min": 100,
+      "max": 1000
     }
   },
   "whereHas": {
+    "category": {
+      "where": {
+        "name": "Electronics"
+      }
+    }
+  },
+  "sortBy": [
+    {
+      "key": "price",
+      "order": "asc"
+    }
+  ],
+  "page": 1,
+  "itemsPerPage": 20
+}
+```
+
+### Пример 2: Заказы с условиями 📦
+
+```json
+{
+  "where": {
+    "status": {
+      "operator": "in",
+      "value": ["pending", "processing"]
+    }
+  },
+  "whereBetween": {
+    "created_at": {
+      "from": "2024-01-01",
+      "to": "2024-12-31"
+    }
+  },
+  "whereHas": {
+    "user": {
+      "where": {
+        "role": "customer"
+      }
+    },
+    "items": {
+      "where": {
+        "product_id": 5
+      }
+    }
+  },
+  "sortBy": [
+    {
+      "key": "created_at",
+      "order": "desc"
+    }
+  ]
+}
+```
+
+### Пример 3: Сложные условия с отрицанием ⛔
+
+```json
+{
+  "where": {
+    "status": "active"
+  },
+  "whereNot": {
+    "category_id": {
+      "operator": "in",
+      "value": [3, 7]
+    }
+  },
+  "whereDoesntHave": {
     "orders": {
       "where": {
-        "total": {
-          "operator": ">",
-          "value": 5000
-        },
-        "status": ["completed", "shipped"]
+        "status": "cancelled"
       }
     }
   },
-  "whereDoesntHave": {
-    "complaints": {
-      "where": {
-        "resolved": false
-      }
-    }
+  "whereNotBetween": {
+    "price": [0, 10]
   }
 }
 ```
 
-### 3. HR: Подбор сотрудников
+---
+
+## ⚠️ Advanced Filter (устаревший)
+
+> **Warning:** Этот метод сохранен для обратной совместимости. Рекомендуется использовать `where`/`orWhere`/`whereNot` с
+> операторами.
+
+**Формат:** `[поле, оператор, значение, тип?]`
+
+**GET:**
 
 ```http
-POST /api/employees
-Content-Type: application/json
+GET /products?advancedFilters[0][]=price&advancedFilters[0][]=>&advancedFilters[0][]=100
+```
 
+**POST JSON:**
+
+```json
 {
-  "where": {
-    "employment_status": "active",
-    "experience_years": {
-      "operator": ">=",
-      "value": 2
-    }
-  },
-  "whereHas": {
-    "skills": {
-      "where": {
-        "name": ["PHP", "Laravel", "PostgreSQL"]
-      }
-    },
-    "department": {
-      "where": {
-        "location": "Remote"
-      },
-      "whereNot": {
-        "name": "Support"
-      }
-    }
-  },
-  "whereDoesntHave": {
-    "vacations": {
-      "where": {
-        "end_date": {
-          "operator": ">",
-          "value": "2025-10-15"
-        }
-      }
-    }
-  }
+  "advancedFilters": [
+    ["price", ">", 100],
+    ["name", "like", "%phone%", "string"]
+  ]
 }
 ```
 
 ---
 
-## 🚀 Использование в коде
+## 🔄 Алиасы параметров
 
-### В контроллере
+Поддерживаются snake_case и camelCase:
 
-```php
-use App\Models\User;
-
-class UserController extends Controller
-{
-    public function index()
-    {
-        // Автоматически применяются все фильтры из request()
-        return User::query()->paginateFiltered('users.created_at');
-    }
-    
-    public function search()
-    {
-        // С кастомной сортировкой по умолчанию
-        $users = User::query()
-            ->filter('users.name')
-            ->paginate(25);
-            
-        return response()->json($users);
-    }
-}
-```
-
-### В модели
-
-```php
-use App\Support\QueryBuilders\CustomQueryBuilder;
-use Illuminate\Database\Eloquent\Model;
-
-class Product extends Model
-{
-    public static string $DEFAULT_SORT_DIRECTION = 'asc';
-
-    public function newEloquentBuilder($query): CustomQueryBuilder
-    {
-        return new CustomQueryBuilder($query);
-    }
-}
-```
-
-### Добавление кастомных RAW условий
-
-```php
-Product::query()
-    ->addRawFilterConditions([
-        'products.sku LIKE ?' => 'search',
-        'products.barcode LIKE ?' => 'search'
-    ])
-    ->paginateFiltered();
-```
+| snake_case             | camelCase           |
+|------------------------|---------------------|
+| `or_where`             | `orWhere`           |
+| `where_between`        | `whereBetween`      |
+| `or_where_between`     | `orWhereBetween`    |
+| `where_not_between`    | `whereNotBetween`   |
+| `or_where_not_between` | `orWhereNotBetween` |
+| `where_has`            | `whereHas`          |
+| `where_doesnt_have`    | `whereDoesntHave`   |
+| `where_not`            | `whereNot`          |
 
 ---
 
-## ⚙️ Конфигурация
-
-### Константы по умолчанию
-
-```php
-CustomQueryBuilder::DEFAULT_SORT_DIRECTION = 'desc';
-CustomQueryBuilder::DEFAULT_PER_PAGE = 20;
-```
-
-### В модели
-
-```php
-class User extends Model
-{
-    // Переопределить направление сортировки
-    public static string $DEFAULT_SORT_DIRECTION = 'asc';
-    
-    // Переопределить количество элементов на странице
-    protected $perPage = 50;
-}
-```
-
----
-
-## 📘 Архитектура
+## 🏗️ Архитектура
 
 ### Основные компоненты
 
-1. **CustomQueryBuilder** - главный класс, расширяющий `Illuminate\Database\Eloquent\Builder`
-2. **Фильтры**:
-    - `WhereFilter` - обработка WHERE условий
-    - `OrWhereFilter` - обработка OR WHERE условий
-    - `WhereNotFilter` - обработка WHERE NOT условий
-    - `WhereHasFilter` - фильтрация по связям
-    - `WhereDoesntHaveFilter` - отсутствие связей
-    - `CustomFieldFilter` - поиск по нескольким полям
+```
+CustomQueryBuilder              # Главный класс
+├── Filters/
+│   ├── WhereFilter            # WHERE условия
+│   ├── OrWhereFilter          # OR WHERE условия
+│   ├── WhereNotFilter         # WHERE NOT условия
+│   ├── WhereBetweenFilter     # WHERE BETWEEN
+│   ├── OrWhereBetweenFilter   # OR WHERE BETWEEN
+│   ├── WhereNotBetweenFilter  # WHERE NOT BETWEEN
+│   ├── OrWhereNotBetweenFilter # OR WHERE NOT BETWEEN
+│   ├── WhereHasFilter         # Фильтр связей (существуют)
+│   ├── WhereDoesntHaveFilter  # Фильтр связей (не существуют)
+│   ├── CustomFieldFilter      # Поиск по полям (ILIKE)
+│   ├── SortFilter             # Сортировка
+│   └── AdvancedFilter         # Устаревший расширенный фильтр
+├── Support/
+│   ├── ConditionFactory       # Создание условий фильтрации
+│   ├── ConditionPayload       # DTO для условия
+│   ├── OperatorExecutor       # Применение операторов к запросу
+│   └── AbstractRelationFilter # Базовый класс для фильтров связей
+└── Enums/
+    └── AdvancedFilterOperator # Enum операторов сравнения
+```
 
-3. **Support классы**:
-    - `ConditionFactory` - создание условий из различных форматов
-    - `OperatorExecutor` - применение операторов к запросу
-    - `ConditionPayload` - DTO для передачи условий
-    - `AbstractRelationFilter` - базовый класс для фильтров связей
+### Принцип работы
 
-4. **Enum**:
-    - `AdvancedFilterOperator` - список поддерживаемых операторов
+```mermaid
+graph LR
+    A[HTTP Request] --> B[getFilteredOptions]
+    B --> C[ConditionFactory]
+    C --> D[Filter Classes]
+    D --> E[OperatorExecutor]
+    E --> F[SQL Query]
+    F --> G[Pagination]
+```
+
+1. **Извлечение параметров** из запроса (`getFilteredOptions`)
+2. **Нормализация** условий через `ConditionFactory`
+3. **Применение фильтров** через соответствующие классы
+4. **Выполнение** через `OperatorExecutor`
+5. **Пагинация** результатов
 
 ---
 
-## 🎯 Преимущества
+## 📝 Примечания
 
-✅ **Единый синтаксис** - одинаковый формат для URL и POST запросов  
-✅ **Типобезопасность** - использование Enum для операторов  
-✅ **Расширяемость** - легко добавить новые операторы и фильтры  
-✅ **Производительность** - ленивое применение фильтров  
-✅ **Читаемость** - понятный DSL для фильтрации  
-✅ **Вложенность** - неограниченная глубина вложенных условий
+> **💡 Полезные советы:**
+
+- ✅ Все операторы LIKE поддерживают регистронезависимый поиск через `type=string` (использует ILIKE в PostgreSQL)
+- 🔗 Фильтры связей поддерживают неограниченную вложенность
+- 🎯 Можно комбинировать любые фильтры в одном запросе
+- 📦 Все фильтры автоматически группируются в `WHERE (...)` для корректной логики
+- 🌐 **GET и POST запросы работают идентично** - используйте то, что удобнее!
+- 💡 **POST с JSON** - рекомендуется для сложных фильтров и frontend интеграции
 
 ---
 
-**Версия документации**: 1.0  
-**Дата**: 2025-10-15
+<div align="center">
+
+**[⬆ Вернуться к содержанию](#-содержание)**
+
+Made with ❤️ for Laravel
+
+</div>
