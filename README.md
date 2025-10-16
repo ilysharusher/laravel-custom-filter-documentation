@@ -7,7 +7,6 @@
 
 ## 📑 Содержание
 
-- [Быстрый старт](#-быстрый-старт)
 - [Базовые параметры](#-базовые-параметры)
 - [Методы запросов (GET/POST)](#-методы-запросов-getpost)
 - [Фильтры WHERE](#-фильтры-where)
@@ -25,53 +24,24 @@
 
 ---
 
-## 🚀 Быстрый старт
-
-### Использование в модели
-
-```php
-use App\Support\QueryBuilders\CustomQueryBuilder;
-use Illuminate\Database\Eloquent\Model;
-
-class Product extends Model
-{
-    public function newEloquentBuilder($query): CustomQueryBuilder
-    {
-        return new CustomQueryBuilder($query);
-    }
-}
-```
-
-### Применение фильтров
-
-```php
-// Простая фильтрация и пагинация
-Product::query()->paginateFiltered('products.created_at');
-
-// Только фильтрация без пагинации
-Product::query()->filter('products.created_at')->get();
-```
-
----
-
 ## ⚙️ Базовые параметры
 
 ### `fields` - Выбор полей
 
 ```http
-GET /products?fields[]=id&fields[]=name&fields[]=price
+GET /api/products?fields[]=id&fields[]=name&fields[]=price
 ```
 
 ### `page` - Номер страницы
 
 ```http
-GET /products?page=2
+GET /api/products?page=2
 ```
 
 ### `itemsPerPage` - Количество элементов на странице
 
 ```http
-GET /products?itemsPerPage=50
+GET /api/products?itemsPerPage=50
 ```
 
 ---
@@ -83,13 +53,13 @@ GET /products?itemsPerPage=50
 ### GET запрос с query параметрами
 
 ```http
-GET /products?where[status]=active&where[price][operator]=>&where[price][value]=100
+GET /api/products?where[status]=active&where[price][operator]=>&where[price][value]=100
 ```
 
 ### POST запрос с JSON телом
 
 ```http
-POST /products
+POST /api/products
 Content-Type: application/json
 ```
 
@@ -148,7 +118,7 @@ Content-Type: application/json
 **GET:**
 
 ```http
-GET /products?where[status]=active
+GET /api/products?where[status]=active
 ```
 
 **POST JSON:**
@@ -169,7 +139,7 @@ GET /products?where[status]=active
 **GET:**
 
 ```http
-GET /products?where[status][]=active&where[status][]=pending
+GET /api/products?where[status][]=active&where[status][]=pending
 ```
 
 **POST JSON:**
@@ -193,7 +163,7 @@ GET /products?where[status][]=active&where[status][]=pending
 **GET:**
 
 ```http
-GET /products?where[price][operator]=>&where[price][value]=100
+GET /api/products?where[price][operator]=>&where[price][value]=100
 ```
 
 **POST JSON:**
@@ -216,7 +186,7 @@ GET /products?where[price][operator]=>&where[price][value]=100
 **GET:**
 
 ```http
-GET /products?orWhere[status]=active&orWhere[status]=pending
+GET /api/products?orWhere[status]=active&orWhere[status]=pending
 ```
 
 **POST JSON:**
@@ -237,7 +207,7 @@ GET /products?orWhere[status]=active&orWhere[status]=pending
 **GET:**
 
 ```http
-GET /products?whereNot[status]=deleted
+GET /api/products?whereNot[status]=deleted
 ```
 
 **POST JSON:**
@@ -283,25 +253,25 @@ GET /products?whereNot[status]=deleted
 <summary><b>GET запросы</b></summary>
 
 ```http
-GET /products?where[price][operator]=>&where[price][value]=100
+GET /api/products?where[price][operator]=>&where[price][value]=100
 ```
 
 Цена больше 100
 
 ```http
-GET /products?where[name][operator]=%like%&where[name][value]=phone
+GET /api/products?where[name][operator]=%like%&where[name][value]=phone
 ```
 
 Название содержит "phone"
 
 ```http
-GET /products?where[status][operator]=in&where[status][value][]=active&where[status][value][]=pending
+GET /api/products?where[status][operator]=in&where[status][value][]=active&where[status][value][]=pending
 ```
 
 Статус в списке значений
 
 ```http
-GET /products?where[deleted_at][operator]=is&where[deleted_at][value]=null
+GET /api/products?where[deleted_at][operator]=is&where[deleted_at][value]=null
 ```
 
 Проверка на NULL
@@ -346,7 +316,7 @@ GET /products?where[deleted_at][operator]=is&where[deleted_at][value]=null
 **GET:**
 
 ```http
-GET /products?where[name][operator]=like&where[name][value]=phone&where[name][type]=string
+GET /api/products?where[name][operator]=like&where[name][value]=phone&where[name][type]=string
 ```
 
 **POST JSON:**
@@ -375,7 +345,7 @@ GET /products?where[name][operator]=like&where[name][value]=phone&where[name][ty
 **GET:**
 
 ```http
-GET /products?whereBetween[price][]=100&whereBetween[price][]=500
+GET /api/products?whereBetween[price][]=100&whereBetween[price][]=500
 ```
 
 **POST JSON:**
@@ -434,19 +404,19 @@ GET /products?whereBetween[price][]=100&whereBetween[price][]=500
 **OR WHERE BETWEEN:**
 
 ```http
-GET /products?orWhereBetween[price][]=50&orWhereBetween[price][]=200
+GET /api/products?orWhereBetween[price][]=50&orWhereBetween[price][]=200
 ```
 
 **WHERE NOT BETWEEN:**
 
 ```http
-GET /products?whereNotBetween[price][min]=1000&whereNotBetween[price][max]=5000
+GET /api/products?whereNotBetween[price][min]=1000&whereNotBetween[price][max]=5000
 ```
 
 **OR WHERE NOT BETWEEN:**
 
 ```http
-GET /products?orWhereNotBetween[stock][]=0&orWhereNotBetween[stock][]=5
+GET /api/products?orWhereNotBetween[stock][]=0&orWhereNotBetween[stock][]=5
 ```
 
 <details>
@@ -489,7 +459,7 @@ GET /products?orWhereNotBetween[stock][]=0&orWhereNotBetween[stock][]=5
 **GET:**
 
 ```http
-GET /products?whereHas[category]=[]
+GET /api/products?whereHas[category]=[]
 ```
 
 **POST JSON:**
@@ -510,7 +480,7 @@ GET /products?whereHas[category]=[]
 **GET:**
 
 ```http
-GET /products?whereHas[category][where][name]=Electronics
+GET /api/products?whereHas[category][where][name]=Electronics
 ```
 
 **POST JSON:**
@@ -557,13 +527,13 @@ GET /products?whereHas[category][where][name]=Electronics
 **Товары без заказов:**
 
 ```http
-GET /products?whereDoesntHave[orders]=[]
+GET /api/products?whereDoesntHave[orders]=[]
 ```
 
 **Товары без активных заказов:**
 
 ```http
-GET /products?whereDoesntHave[orders][where][status]=active
+GET /api/products?whereDoesntHave[orders][where][status]=active
 ```
 
 **POST JSON:**
@@ -610,7 +580,7 @@ GET /products?whereDoesntHave[orders][where][status]=active
 **GET:**
 
 ```http
-GET /products?filter[name]=phone&filter[sku]=12345
+GET /api/products?filter[name]=phone&filter[sku]=12345
 ```
 
 **POST JSON:**
@@ -654,13 +624,13 @@ Product::query()
 **Сортировка по одному полю:**
 
 ```http
-GET /products?sortBy[0][key]=price&sortBy[0][order]=desc
+GET /api/products?sortBy[0][key]=price&sortBy[0][order]=desc
 ```
 
 **Сортировка по нескольким полям:**
 
 ```http
-GET /products?sortBy[0][key]=category&sortBy[0][order]=asc&sortBy[1][key]=price&sortBy[1][order]=desc
+GET /api/products?sortBy[0][key]=category&sortBy[0][order]=asc&sortBy[1][key]=price&sortBy[1][order]=desc
 ```
 
 **POST JSON:**
@@ -698,7 +668,7 @@ GET /products?sortBy[0][key]=category&sortBy[0][order]=asc&sortBy[1][key]=price&
 **GET:**
 
 ```http
-GET /products?page=2&itemsPerPage=25
+GET /api/products?page=2&itemsPerPage=25
 ```
 
 **POST JSON:**
@@ -845,7 +815,7 @@ Product::query()->filter()->get();
 **GET:**
 
 ```http
-GET /products?advancedFilters[0][]=price&advancedFilters[0][]=>&advancedFilters[0][]=100
+GET /api/products?advancedFilters[0][]=price&advancedFilters[0][]=>&advancedFilters[0][]=100
 ```
 
 **POST JSON:**
