@@ -95,34 +95,34 @@ Content-Type: application/json
 
 ```json
 {
-  "where": {
-    "status": "active",
-    "price": {
-      "operator": ">",
-      "value": 100
-    }
-  },
-  "whereBetween": {
-    "created_at": {
-      "from": "2024-01-01",
-      "to": "2024-12-31"
-    }
-  },
-  "whereHas": {
-    "category": {
-      "where": {
-        "name": "Electronics"
-      }
-    }
-  },
-  "sortBy": [
-    {
-      "key": "price",
-      "order": "asc"
-    }
-  ],
-  "page": 1,
-  "itemsPerPage": 20
+    "where": {
+        "status": "active",
+        "price": {
+            "operator": ">",
+            "value": 100
+        }
+    },
+    "whereBetween": {
+        "created_at": {
+            "from": "2024-01-01",
+            "to": "2024-12-31"
+        }
+    },
+    "whereHas": {
+        "category": {
+            "where": {
+                "name": "Electronics"
+            }
+        }
+    },
+    "sortBy": [
+        {
+            "key": "price",
+            "order": "asc"
+        }
+    ],
+    "page": 1,
+    "itemsPerPage": 20
 }
 ```
 
@@ -155,9 +155,9 @@ GET /products?where[status]=active
 
 ```json
 {
-  "where": {
-    "status": "active"
-  }
+    "where": {
+        "status": "active"
+    }
 }
 ```
 
@@ -176,9 +176,12 @@ GET /products?where[status][]=active&where[status][]=pending
 
 ```json
 {
-  "where": {
-    "status": ["active", "pending"]
-  }
+    "where": {
+        "status": [
+            "active",
+            "pending"
+        ]
+    }
 }
 ```
 
@@ -197,12 +200,12 @@ GET /products?where[price][operator]=>&where[price][value]=100
 
 ```json
 {
-  "where": {
-    "price": {
-      "operator": ">",
-      "value": 100
+    "where": {
+        "price": {
+            "operator": ">",
+            "value": 100
+        }
     }
-  }
 }
 ```
 
@@ -220,9 +223,12 @@ GET /products?orWhere[status]=active&orWhere[status]=pending
 
 ```json
 {
-  "orWhere": {
-    "status": ["active", "pending"]
-  }
+    "orWhere": {
+        "status": [
+            "active",
+            "pending"
+        ]
+    }
 }
 ```
 
@@ -238,10 +244,13 @@ GET /products?whereNot[status]=deleted
 
 ```json
 {
-  "whereNot": {
-    "status": "deleted",
-    "id": [5, 10]
-  }
+    "whereNot": {
+        "status": "deleted",
+        "id": [
+            5,
+            10
+        ]
+    }
 }
 ```
 
@@ -274,18 +283,28 @@ GET /products?whereNot[status]=deleted
 <summary><b>GET запросы</b></summary>
 
 ```http
-# Цена больше 100
 GET /products?where[price][operator]=>&where[price][value]=100
+```
 
-# Название содержит "phone"
+Цена больше 100
+
+```http
 GET /products?where[name][operator]=%like%&where[name][value]=phone
+```
 
-# Статус в списке значений
+Название содержит "phone"
+
+```http
 GET /products?where[status][operator]=in&where[status][value][]=active&where[status][value][]=pending
+```
 
-# Проверка на NULL
+Статус в списке значений
+
+```http
 GET /products?where[deleted_at][operator]=is&where[deleted_at][value]=null
 ```
+
+Проверка на NULL
 
 </details>
 
@@ -294,24 +313,27 @@ GET /products?where[deleted_at][operator]=is&where[deleted_at][value]=null
 
 ```json
 {
-  "where": {
-    "price": {
-      "operator": ">",
-      "value": 100
-    },
-    "name": {
-      "operator": "%like%",
-      "value": "phone"
-    },
-    "status": {
-      "operator": "in",
-      "value": ["active", "pending"]
-    },
-    "deleted_at": {
-      "operator": "is",
-      "value": "null"
+    "where": {
+        "price": {
+            "operator": ">",
+            "value": 100
+        },
+        "name": {
+            "operator": "%like%",
+            "value": "phone"
+        },
+        "status": {
+            "operator": "in",
+            "value": [
+                "active",
+                "pending"
+            ]
+        },
+        "deleted_at": {
+            "operator": "is",
+            "value": "null"
+        }
     }
-  }
 }
 ```
 
@@ -331,13 +353,13 @@ GET /products?where[name][operator]=like&where[name][value]=phone&where[name][ty
 
 ```json
 {
-  "where": {
-    "name": {
-      "operator": "like",
-      "value": "phone",
-      "type": "string"
+    "where": {
+        "name": {
+            "operator": "like",
+            "value": "phone",
+            "type": "string"
+        }
     }
-  }
 }
 ```
 
@@ -360,9 +382,12 @@ GET /products?whereBetween[price][]=100&whereBetween[price][]=500
 
 ```json
 {
-  "whereBetween": {
-    "price": [100, 500]
-  }
+    "whereBetween": {
+        "price": [
+            100,
+            500
+        ]
+    }
 }
 ```
 
@@ -375,12 +400,12 @@ GET /products?whereBetween[price][]=100&whereBetween[price][]=500
 
 ```json
 {
-  "whereBetween": {
-    "price": {
-      "min": 100,
-      "max": 500
+    "whereBetween": {
+        "price": {
+            "min": 100,
+            "max": 500
+        }
     }
-  }
 }
 ```
 
@@ -393,12 +418,12 @@ GET /products?whereBetween[price][]=100&whereBetween[price][]=500
 
 ```json
 {
-  "whereBetween": {
-    "created_at": {
-      "from": "2024-01-01",
-      "to": "2024-12-31"
+    "whereBetween": {
+        "created_at": {
+            "from": "2024-01-01",
+            "to": "2024-12-31"
+        }
     }
-  }
 }
 ```
 
@@ -406,14 +431,21 @@ GET /products?whereBetween[price][]=100&whereBetween[price][]=500
 
 ### Другие BETWEEN варианты
 
+**OR WHERE BETWEEN:**
+
 ```http
-# OR WHERE BETWEEN
 GET /products?orWhereBetween[price][]=50&orWhereBetween[price][]=200
+```
 
-# WHERE NOT BETWEEN
+**WHERE NOT BETWEEN:**
+
+```http
 GET /products?whereNotBetween[price][min]=1000&whereNotBetween[price][max]=5000
+```
 
-# OR WHERE NOT BETWEEN
+**OR WHERE NOT BETWEEN:**
+
+```http
 GET /products?orWhereNotBetween[stock][]=0&orWhereNotBetween[stock][]=5
 ```
 
@@ -422,18 +454,24 @@ GET /products?orWhereNotBetween[stock][]=0&orWhereNotBetween[stock][]=5
 
 ```json
 {
-  "orWhereBetween": {
-    "price": [50, 200]
-  },
-  "whereNotBetween": {
-    "price": {
-      "min": 1000,
-      "max": 5000
+    "orWhereBetween": {
+        "price": [
+            50,
+            200
+        ]
+    },
+    "whereNotBetween": {
+        "price": {
+            "min": 1000,
+            "max": 5000
+        }
+    },
+    "orWhereNotBetween": {
+        "stock": [
+            0,
+            5
+        ]
     }
-  },
-  "orWhereNotBetween": {
-    "stock": [0, 5]
-  }
 }
 ```
 
@@ -458,9 +496,9 @@ GET /products?whereHas[category]=[]
 
 ```json
 {
-  "whereHas": {
-    "category": []
-  }
+    "whereHas": {
+        "category": []
+    }
 }
 ```
 
@@ -479,13 +517,13 @@ GET /products?whereHas[category][where][name]=Electronics
 
 ```json
 {
-  "whereHas": {
-    "category": {
-      "where": {
-        "name": "Electronics"
-      }
+    "whereHas": {
+        "category": {
+            "where": {
+                "name": "Electronics"
+            }
+        }
     }
-  }
 }
 ```
 
@@ -498,17 +536,17 @@ GET /products?whereHas[category][where][name]=Electronics
 
 ```json
 {
-  "whereHas": {
-    "category": {
-      "whereHas": {
-        "parent": {
-          "where": {
-            "name": "Main"
-          }
+    "whereHas": {
+        "category": {
+            "whereHas": {
+                "parent": {
+                    "where": {
+                        "name": "Main"
+                    }
+                }
+            }
         }
-      }
     }
-  }
 }
 ```
 
@@ -516,13 +554,15 @@ GET /products?whereHas[category][where][name]=Electronics
 
 ### ❌ `whereDoesntHave` - Фильтр по отсутствующей связи
 
-**GET:**
+**Товары без заказов:**
 
 ```http
-# Товары без заказов
 GET /products?whereDoesntHave[orders]=[]
+```
 
-# Товары без активных заказов
+**Товары без активных заказов:**
+
+```http
 GET /products?whereDoesntHave[orders][where][status]=active
 ```
 
@@ -530,17 +570,17 @@ GET /products?whereDoesntHave[orders][where][status]=active
 
 ```json
 {
-  "whereDoesntHave": {
-    "orders": [],
-    "reviews": {
-      "where": {
-        "rating": {
-          "operator": "<",
-          "value": 3
+    "whereDoesntHave": {
+        "orders": [],
+        "reviews": {
+            "where": {
+                "rating": {
+                    "operator": "<",
+                    "value": 3
+                }
+            }
         }
-      }
     }
-  }
 }
 ```
 
@@ -577,10 +617,10 @@ GET /products?filter[name]=phone&filter[sku]=12345
 
 ```json
 {
-  "filter": {
-    "name": "phone",
-    "sku": "12345"
-  }
+    "filter": {
+        "name": "phone",
+        "sku": "12345"
+    }
 }
 ```
 
@@ -599,9 +639,9 @@ Product::query()
 
 ```json
 {
-  "filter": {
-    "search": "smartphone"
-  }
+    "filter": {
+        "search": "smartphone"
+    }
 }
 ```
 
@@ -611,13 +651,15 @@ Product::query()
 
 ### `sortBy` - Множественная сортировка
 
-**GET:**
+**Сортировка по одному полю:**
 
 ```http
-# Сортировка по одному полю
 GET /products?sortBy[0][key]=price&sortBy[0][order]=desc
+```
 
-# Сортировка по нескольким полям
+**Сортировка по нескольким полям:**
+
+```http
 GET /products?sortBy[0][key]=category&sortBy[0][order]=asc&sortBy[1][key]=price&sortBy[1][order]=desc
 ```
 
@@ -625,16 +667,16 @@ GET /products?sortBy[0][key]=category&sortBy[0][order]=asc&sortBy[1][key]=price&
 
 ```json
 {
-  "sortBy": [
-    {
-      "key": "category",
-      "order": "asc"
-    },
-    {
-      "key": "price",
-      "order": "desc"
-    }
-  ]
+    "sortBy": [
+        {
+            "key": "category",
+            "order": "asc"
+        },
+        {
+            "key": "price",
+            "order": "desc"
+        }
+    ]
 }
 ```
 
@@ -663,8 +705,8 @@ GET /products?page=2&itemsPerPage=25
 
 ```json
 {
-  "page": 2,
-  "itemsPerPage": 25
+    "page": 2,
+    "itemsPerPage": 25
 }
 ```
 
@@ -689,33 +731,33 @@ Product::query()->filter()->get();
 
 ```json
 {
-  "filter": {
-    "name": "phone"
-  },
-  "where": {
-    "status": "active"
-  },
-  "whereBetween": {
-    "price": {
-      "min": 100,
-      "max": 1000
-    }
-  },
-  "whereHas": {
-    "category": {
-      "where": {
-        "name": "Electronics"
-      }
-    }
-  },
-  "sortBy": [
-    {
-      "key": "price",
-      "order": "asc"
-    }
-  ],
-  "page": 1,
-  "itemsPerPage": 20
+    "filter": {
+        "name": "phone"
+    },
+    "where": {
+        "status": "active"
+    },
+    "whereBetween": {
+        "price": {
+            "min": 100,
+            "max": 1000
+        }
+    },
+    "whereHas": {
+        "category": {
+            "where": {
+                "name": "Electronics"
+            }
+        }
+    },
+    "sortBy": [
+        {
+            "key": "price",
+            "order": "asc"
+        }
+    ],
+    "page": 1,
+    "itemsPerPage": 20
 }
 ```
 
@@ -723,36 +765,39 @@ Product::query()->filter()->get();
 
 ```json
 {
-  "where": {
-    "status": {
-      "operator": "in",
-      "value": ["pending", "processing"]
-    }
-  },
-  "whereBetween": {
-    "created_at": {
-      "from": "2024-01-01",
-      "to": "2024-12-31"
-    }
-  },
-  "whereHas": {
-    "user": {
-      "where": {
-        "role": "customer"
-      }
+    "where": {
+        "status": {
+            "operator": "in",
+            "value": [
+                "pending",
+                "processing"
+            ]
+        }
     },
-    "items": {
-      "where": {
-        "product_id": 5
-      }
-    }
-  },
-  "sortBy": [
-    {
-      "key": "created_at",
-      "order": "desc"
-    }
-  ]
+    "whereBetween": {
+        "created_at": {
+            "from": "2024-01-01",
+            "to": "2024-12-31"
+        }
+    },
+    "whereHas": {
+        "user": {
+            "where": {
+                "role": "customer"
+            }
+        },
+        "items": {
+            "where": {
+                "product_id": 5
+            }
+        }
+    },
+    "sortBy": [
+        {
+            "key": "created_at",
+            "order": "desc"
+        }
+    ]
 }
 ```
 
@@ -760,25 +805,31 @@ Product::query()->filter()->get();
 
 ```json
 {
-  "where": {
-    "status": "active"
-  },
-  "whereNot": {
-    "category_id": {
-      "operator": "in",
-      "value": [3, 7]
+    "where": {
+        "status": "active"
+    },
+    "whereNot": {
+        "category_id": {
+            "operator": "in",
+            "value": [
+                3,
+                7
+            ]
+        }
+    },
+    "whereDoesntHave": {
+        "orders": {
+            "where": {
+                "status": "cancelled"
+            }
+        }
+    },
+    "whereNotBetween": {
+        "price": [
+            0,
+            10
+        ]
     }
-  },
-  "whereDoesntHave": {
-    "orders": {
-      "where": {
-        "status": "cancelled"
-      }
-    }
-  },
-  "whereNotBetween": {
-    "price": [0, 10]
-  }
 }
 ```
 
@@ -801,10 +852,19 @@ GET /products?advancedFilters[0][]=price&advancedFilters[0][]=>&advancedFilters[
 
 ```json
 {
-  "advancedFilters": [
-    ["price", ">", 100],
-    ["name", "like", "%phone%", "string"]
-  ]
+    "advancedFilters": [
+        [
+            "price",
+            ">",
+            100
+        ],
+        [
+            "name",
+            "like",
+            "%phone%",
+            "string"
+        ]
+    ]
 }
 ```
 
