@@ -594,27 +594,6 @@ GET /api/products?filter[name]=phone&filter[sku]=12345
 }
 ```
 
-### Добавление кастомных условий поиска
-
-```php
-// В контроллере
-Product::query()
-    ->addRawFilterConditions([
-        'products.description' => 'products.description ILIKE ?'
-    ])
-    ->paginateFiltered();
-```
-
-Теперь `filter[search]` будет искать также и по описанию:
-
-```json
-{
-    "filter": {
-        "search": "smartphone"
-    }
-}
-```
-
 ---
 
 ## 📊 Сортировка
@@ -686,12 +665,6 @@ GET /api/products?page=2&itemsPerPage=25
 |----------------|--------------------------------|
 | `page`         | `1`                            |
 | `itemsPerPage` | `Model->getPerPage()` или `20` |
-
-### Без пагинации
-
-```php
-Product::query()->filter()->get();
-```
 
 ---
 
