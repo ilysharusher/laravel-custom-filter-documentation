@@ -1,224 +1,512 @@
-# CustomQueryBuilder - Документация фильтрации 🔍
+# Search Filter - Документация полнотекстового поиска
 
-> Кастомный построитель запросов для Laravel с расширенными возможностями фильтрации, сортировки и пагинации через
-> параметры запроса.
+## Описание
 
----
-
-## 📑 Содержание
-
-- [Базовые параметры](#-базовые-параметры)
-- [Методы запросов (GET/POST)](#-методы-запросов-getpost)
-- [Фильтры WHERE](#-фильтры-where)
-- [Операторы сравнения](#-операторы-сравнения)
-- [BETWEEN фильтры](#-between-фильтры)
-- [Фильтры связей](#-фильтры-связей)
-- [Поисковый фильтр](#-поисковый-фильтр)
-- [Сортировка](#-сортировка)
-- [Пагинация](#-пагинация)
-- [Комплексные примеры](#-комплексные-примеры)
-- [Advanced Filter](#-advanced-filter-устаревший)
-- [Алиасы параметров](#-алиасы-параметров)
-- [Архитектура](#-архитектура)
-- [Примечания](#-примечания)
+`SearchFilter` - это специализированный фильтр для полнотекстового поиска по нескольким полям одновременно. Поддерживает
+поиск как по простым полям модели, так и по полям связанных моделей через точечную нотацию.
 
 ---
 
-## ⚙️ Базовые параметры
+## Архитектура
 
-### `fields` - Выбор полей
+### Путь обработки
 
-```http
-GET /api/products?fields[]=id&fields[]=name&fields[]=price
+```
+Request → CustomQueryBuilder::applySearch() 
+    → SearchFilter::apply()
+        → RelationFieldParser::parse() (для каждого поля)
+            → applySearchDirect() или applySearchWithRelation()
 ```
 
-### `page` - Номер страницы
+### Основные компоненты
 
-```http
-GET /api/products?page=2
-```
+1. **SearchFilter** (`app/Support/QueryBuilders/Filters/SearchFilter.php`)
+    - Основной класс обработки поиска
+    - Обрабатывает массив полей для поиска
+    - Автоматически определяет наличие relations
 
-### `itemsPerPage` - Количество элементов на странице
-
-```http
-GET /api/products?itemsPerPage=50
-```
+2. **RelationFieldParser** (`app/Support/QueryBuilders/Filters/Support/RelationFieldParser.php`)
+    - Парсит поля с точечной нотацией
+    - Разделяет relation path и конечное поле
+    - Пример: `user.profile.city` → relations: `['user', 'profile']`, field: `'city'`
 
 ---
 
-## 🌐 Методы запросов (GET/POST)
+## Формат запроса
 
-Фильтры работают **одинаково** как с GET параметрами, так и с POST JSON запросами!
-
-### GET запрос с query параметрами
-
-```http
-GET /api/products?where[status]=active&where[price][operator]=>&where[price][value]=100
-```
-
-### POST запрос с JSON телом
-
-```http
-POST /api/products
-Content-Type: application/json
-```
+### Базовая структура
 
 ```json
 {
+    "search": {
+        "query": "значение для поиска",
+        "fields": [
+            "поле1",
+            "поле2",
+            "relation.поле3"
+        ]
+    }
+}
+```
+
+### Параметры
+
+| Параметр | Тип              | Обязательный    | Описание                |
+|----------|------------------|-----------------|-------------------------|
+| `query`  | `string\|number` | ✅ Да            | Поисковый запрос        |
+| `value`  | `string\|number` | ⚠️ Альтернатива | Алиас для `query`       |
+| `fields` | `array`          | ✅ Да            | Массив полей для поиска |
+
+---
+
+## Логика поиска
+
+### Для строковых значений
+
+```sql
+WHERE (field ILIKE '%query%')
+```
+
+- Использует **ILIKE** (регистронезависимый поиск в PostgreSQL)
+- Автоматически добавляет wildcards `%` с обеих сторон
+- Поиск вхождения подстроки в любом месте поля
+
+### Для числовых значений
+
+```sql
+WHERE (field ILIKE '%query%' OR field = query)
+```
+
+- Выполняет **два условия**:
+    1. `ILIKE` поиск (для частичного совпадения, например: "123" найдет "12345")
+    2. Точное совпадение `=` (для полного совпадения числа)
+
+### Комбинация полей
+
+Все поля объединяются через **OR**:
+
+```sql
+WHERE (
+  field1 ILIKE '%query%' 
+  OR field2 ILIKE '%query%' 
+  OR field3 ILIKE '%query%'
+)
+```
+
+---
+
+## Работа с Relations
+
+### Автоматическое определение
+
+Система автоматически определяет relations по наличию точки в имени поля:
+
+```
+"user.email" → relation detected
+"email"      → direct field
+```
+
+### Обработка через whereHas
+
+Для полей с relations используется **Laravel orWhereHas**:
+
+```php
+$builder->orWhereHas('relationName', function($query) use ($field, $searchQuery) {
+    $query->where($field, 'ILIKE', "%{$searchQuery}%");
+    if (is_numeric($searchQuery)) {
+        $query->orWhere($field, '=', $searchQuery);
+    }
+});
+```
+
+### Вложенные Relations
+
+Поддерживается неограниченная вложенность:
+
+```json
+{
+    "search": {
+        "query": "Moscow",
+        "fields": [
+            "user.profile.city.name"
+        ]
+    }
+}
+```
+
+Преобразуется в:
+
+```sql
+OR EXISTS (
+  SELECT * FROM users
+  WHERE table.user_id = users.id
+  AND EXISTS (
+    SELECT * FROM profiles
+    WHERE users.profile_id = profiles.id
+    AND EXISTS (
+      SELECT * FROM cities
+      WHERE profiles.city_id = cities.id
+      AND cities.name ILIKE '%Moscow%'
+    )
+  )
+)
+```
+
+---
+
+## Примеры использования
+
+### 1. Простой поиск по одному полю
+
+**Запрос:**
+
+```json
+{
+    "search": {
+        "query": "laptop",
+        "fields": [
+            "name"
+        ]
+    }
+}
+```
+
+**SQL:**
+
+```sql
+WHERE (name ILIKE '%laptop%')
+```
+
+---
+
+### 2. Поиск по нескольким полям
+
+**Запрос:**
+
+```json
+{
+    "search": {
+        "query": "apple",
+        "fields": [
+            "name",
+            "description",
+            "brand"
+        ]
+    }
+}
+```
+
+**SQL:**
+
+```sql
+WHERE (
+  name ILIKE '%apple%'
+  OR description ILIKE '%apple%'
+  OR brand ILIKE '%apple%'
+)
+```
+
+---
+
+### 3. Числовой поиск
+
+**Запрос:**
+
+```json
+{
+    "search": {
+        "query": "1000",
+        "fields": [
+            "price",
+            "sku"
+        ]
+    }
+}
+```
+
+**SQL:**
+
+```sql
+WHERE (
+  (price ILIKE '%1000%' OR price = 1000)
+  OR (sku ILIKE '%1000%' OR sku = 1000)
+)
+```
+
+**Результаты:**
+
+- Товары с ценой ровно 1000
+- Товары с ценой 10000, 21000 (содержат "1000")
+- SKU вида "ABC-1000-XYZ" или "1000"
+
+---
+
+### 4. Поиск по relation (одна вложенность)
+
+**Запрос:**
+
+```json
+{
+    "search": {
+        "query": "electronics",
+        "fields": [
+            "name",
+            "category.name"
+        ]
+    }
+}
+```
+
+**SQL:**
+
+```sql
+WHERE (
+  name ILIKE '%electronics%'
+  OR EXISTS (
+    SELECT * FROM categories
+    WHERE products.category_id = categories.id
+    AND categories.name ILIKE '%electronics%'
+  )
+)
+```
+
+---
+
+### 5. Поиск по глубоким relations
+
+**Запрос:**
+
+```json
+{
+    "search": {
+        "query": "john",
+        "fields": [
+            "title",
+            "author.name",
+            "author.profile.bio",
+            "publisher.city.name"
+        ]
+    }
+}
+```
+
+**SQL:**
+
+```sql
+WHERE (
+  title ILIKE '%john%'
+  OR EXISTS (
+    SELECT * FROM authors
+    WHERE books.author_id = authors.id
+    AND authors.name ILIKE '%john%'
+  )
+  OR EXISTS (
+    SELECT * FROM authors
+    WHERE books.author_id = authors.id
+    AND EXISTS (
+      SELECT * FROM profiles
+      WHERE authors.profile_id = profiles.id
+      AND profiles.bio ILIKE '%john%'
+    )
+  )
+  OR EXISTS (
+    SELECT * FROM publishers
+    WHERE books.publisher_id = publishers.id
+    AND EXISTS (
+      SELECT * FROM cities
+      WHERE publishers.city_id = cities.id
+      AND cities.name ILIKE '%john%'
+    )
+  )
+)
+```
+
+---
+
+### 6. Поиск email адресов
+
+**Запрос:**
+
+```json
+{
+    "search": {
+        "query": "@gmail.com",
+        "fields": [
+            "email",
+            "user.email",
+            "contact.email"
+        ]
+    }
+}
+```
+
+**SQL:**
+
+```sql
+WHERE (
+  email ILIKE '%@gmail.com%'
+  OR EXISTS (
+    SELECT * FROM users
+    WHERE records.user_id = users.id
+    AND users.email ILIKE '%@gmail.com%'
+  )
+  OR EXISTS (
+    SELECT * FROM contacts
+    WHERE records.contact_id = contacts.id
+    AND contacts.email ILIKE '%@gmail.com%'
+  )
+)
+```
+
+---
+
+### 7. Поиск по телефону
+
+**Запрос:**
+
+```json
+{
+    "search": {
+        "query": "+7",
+        "fields": [
+            "phone",
+            "mobile",
+            "user.phone"
+        ]
+    }
+}
+```
+
+**SQL:**
+
+```sql
+WHERE (
+  phone ILIKE '%+7%'
+  OR mobile ILIKE '%+7%'
+  OR EXISTS (
+    SELECT * FROM users
+    WHERE orders.user_id = users.id
+    AND users.phone ILIKE '%+7%'
+  )
+)
+```
+
+---
+
+### 8. Поиск артикула (SKU) - числовой
+
+**Запрос:**
+
+```json
+{
+    "search": {
+        "query": "12345",
+        "fields": [
+            "sku",
+            "barcode",
+            "article"
+        ]
+    }
+}
+```
+
+**SQL:**
+
+```sql
+WHERE (
+  (sku ILIKE '%12345%' OR sku = 12345)
+  OR (barcode ILIKE '%12345%' OR barcode = 12345)
+  OR (article ILIKE '%12345%' OR article = 12345)
+)
+```
+
+**Найдет:**
+
+- SKU: "12345" (точное совпадение)
+- SKU: "ABC-12345-XYZ" (частичное совпадение)
+- Barcode: "1234567890" (содержит "12345")
+
+---
+
+### 9. Комбинация с другими фильтрами
+
+**Запрос:**
+
+```json
+{
+    "search": {
+        "query": "laptop",
+        "fields": [
+            "name",
+            "description",
+            "brand.name"
+        ]
+    },
     "where": {
         "status": "active",
         "price": {
-            "operator": ">",
-            "value": 100
+            "operator": ">=",
+            "value": 500
         }
     },
-    "whereBetween": {
-        "created_at": {
-            "from": "2024-01-01",
-            "to": "2024-12-31"
-        }
-    },
-    "whereHas": {
+    "where_has": {
         "category": {
             "where": {
-                "name": "Electronics"
+                "slug": "electronics"
             }
         }
-    },
-    "sortBy": [
-        {
-            "key": "price",
-            "order": "asc"
-        }
-    ],
-    "page": 1,
-    "itemsPerPage": 20
+    }
 }
 ```
 
-### 💡 Преимущества POST с JSON
+**SQL:**
 
-| Преимущество        | Описание                              |
-|---------------------|---------------------------------------|
-| ✅ Удобство          | Идеально для сложных фильтров         |
-| ✅ Читабельность     | Чистая структура данных               |
-| ✅ Вложенность       | Легко работать с вложенными объектами |
-| ✅ Без ограничений   | Нет лимита на длину URL               |
-| ✅ Frontend-friendly | Простая интеграция с frontend         |
+```sql
+WHERE (
+  name ILIKE '%laptop%'
+  OR description ILIKE '%laptop%'
+  OR EXISTS (
+    SELECT * FROM brands
+    WHERE products.brand_id = brands.id
+    AND brands.name ILIKE '%laptop%'
+  )
+)
+AND status = 'active'
+AND price >= 500
+AND EXISTS (
+  SELECT * FROM categories
+  WHERE products.category_id = categories.id
+  AND categories.slug = 'electronics'
+)
+```
 
 ---
 
-## 🔎 Фильтры WHERE
+### 10. Альтернативный синтаксис (через `value`)
 
-### `where` - Базовая фильтрация
-
-<details>
-<summary><b>Простое равенство</b></summary>
-
-**GET:**
-
-```http
-GET /api/products?where[status]=active
-```
-
-**POST JSON:**
+**Запрос:**
 
 ```json
 {
-    "where": {
-        "status": "active"
-    }
-}
-```
-
-</details>
-
-<details>
-<summary><b>С оператором IN (массив значений)</b></summary>
-
-**GET:**
-
-```http
-GET /api/products?where[status][]=active&where[status][]=pending
-```
-
-**POST JSON:**
-
-```json
-{
-    "where": {
-        "status": [
-            "active",
-            "pending"
+    "search": {
+        "value": "search term",
+        "fields": [
+            "title",
+            "content"
         ]
     }
 }
 ```
 
-</details>
-
-<details>
-<summary><b>С явным оператором</b></summary>
-
-**GET:**
-
-```http
-GET /api/products?where[price][operator]=>&where[price][value]=100
-```
-
-**POST JSON:**
+Эквивалентно:
 
 ```json
 {
-    "where": {
-        "price": {
-            "operator": ">",
-            "value": 100
-        }
-    }
-}
-```
-
-</details>
-
-### ➕ `orWhere` - Условие ИЛИ
-
-**GET:**
-
-```http
-GET /api/products?orWhere[status]=active&orWhere[status]=pending
-```
-
-**POST JSON:**
-
-```json
-{
-    "orWhere": {
-        "status": [
-            "active",
-            "pending"
-        ]
-    }
-}
-```
-
-### ⛔ `whereNot` - Исключение значений
-
-**GET:**
-
-```http
-GET /api/products?whereNot[status]=deleted
-```
-
-**POST JSON:**
-
-```json
-{
-    "whereNot": {
-        "status": "deleted",
-        "id": [
-            5,
-            10
+    "search": {
+        "query": "search term",
+        "fields": [
+            "title",
+            "content"
         ]
     }
 }
@@ -226,675 +514,150 @@ GET /api/products?whereNot[status]=deleted
 
 ---
 
-## 🔢 Операторы сравнения
+## Ограничения
 
-### Доступные операторы
-
-| Оператор   | Описание         | Пример                                                             |
-|------------|------------------|--------------------------------------------------------------------|
-| `=`        | Равно            | `where[status][operator]==&where[status][value]=active`            |
-| `!=`       | Не равно         | `where[status][operator]=!=&where[status][value]=deleted`          |
-| `>`        | Больше           | `where[price][operator]=>&where[price][value]=100`                 |
-| `<`        | Меньше           | `where[price][operator]=<&where[price][value]=500`                 |
-| `>=`       | Больше или равно | `where[stock][operator]=>=%where[stock][value]=10`                 |
-| `<=`       | Меньше или равно | `where[discount][operator]=<=&where[discount][value]=50`           |
-| `like`     | LIKE             | `where[name][operator]=like&where[name][value]=Phone%`             |
-| `not like` | NOT LIKE         | `where[name][operator]=not like&where[name][value]=%test%`         |
-| `%like%`   | LIKE с wildcards | `where[name][operator]=%like%&where[name][value]=phone`            |
-| `like%`    | Начинается с     | `where[name][operator]=like%&where[name][value]=Apple`             |
-| `%like`    | Заканчивается на | `where[name][operator]=%like&where[name][value]=Pro`               |
-| `in`       | IN (список)      | `where[id][operator]=in&where[id][value][]=1&where[id][value][]=2` |
-| `not in`   | NOT IN           | `where[status][operator]=not in&where[status][values][]=deleted`   |
-| `is`       | IS NULL/NOT NULL | `where[deleted_at][operator]=is&where[deleted_at][value]=null`     |
-
-### Примеры использования
-
-<details>
-<summary><b>GET запросы</b></summary>
-
-```http
-GET /api/products?where[price][operator]=>&where[price][value]=100
-```
-
-Цена больше 100
-
-```http
-GET /api/products?where[name][operator]=%like%&where[name][value]=phone
-```
-
-Название содержит "phone"
-
-```http
-GET /api/products?where[status][operator]=in&where[status][value][]=active&where[status][value][]=pending
-```
-
-Статус в списке значений
-
-```http
-GET /api/products?where[deleted_at][operator]=is&where[deleted_at][value]=null
-```
-
-Проверка на NULL
-
-</details>
-
-<details>
-<summary><b>POST JSON</b></summary>
+### 1. Пустые значения игнорируются
 
 ```json
 {
-    "where": {
-        "price": {
-            "operator": ">",
-            "value": 100
-        },
+    "search": {
+        "query": "",
+        "fields": [
+            "name"
+        ]
+    }
+}
+```
+
+**Результат:** фильтр не применяется, возвращаются все записи.
+
+### 2. Пустой массив полей игнорируется
+
+```json
+{
+    "search": {
+        "query": "laptop",
+        "fields": []
+    }
+}
+```
+
+**Результат:** фильтр не применяется.
+
+### 3. Несуществующие поля
+
+Если указано несуществующее поле:
+
+```json
+{
+    "search": {
+        "query": "test",
+        "fields": [
+            "non_existent_field"
+        ]
+    }
+}
+```
+
+**Результат:** SQL ошибка при выполнении запроса.
+
+**Решение:** Валидация полей в Form Request:
+
+```php
+public function rules()
+{
+    return [
+        'search.query' => 'required|string|max:255',
+        'search.fields' => 'required|array|min:1',
+        'search.fields.*' => 'string|in:name,description,sku,brand.name',
+    ];
+}
+```
+
+### 4. Несуществующие relations
+
+При указании несуществующего relation:
+
+```json
+{
+    "search": {
+        "query": "test",
+        "fields": [
+            "non_existent_relation.field"
+        ]
+    }
+}
+```
+
+**Результат:** Laravel выбросит исключение `RelationNotFoundException`.
+
+---
+
+## Сравнение с другими фильтрами
+
+### Search vs Where с LIKE
+
+**Search:**
+
+```json
+{
+    "search": {
+        "query": "laptop",
+        "fields": [
+            "name",
+            "description"
+        ]
+    }
+}
+```
+
+**Where с LIKE:**
+
+```json
+{
+    "or_where": {
         "name": {
             "operator": "%like%",
-            "value": "phone"
+            "value": "laptop",
+            "type": "string"
         },
-        "status": {
-            "operator": "in",
-            "value": [
-                "active",
-                "pending"
-            ]
-        },
-        "deleted_at": {
-            "operator": "is",
-            "value": "null"
-        }
-    }
-}
-```
-
-</details>
-
-### Регистронезависимый поиск
-
-> **Tip:** Добавьте параметр `type=string` для ILIKE вместо LIKE
-
-**GET:**
-
-```http
-GET /api/products?where[name][operator]=like&where[name][value]=phone&where[name][type]=string
-```
-
-**POST JSON:**
-
-```json
-{
-    "where": {
-        "name": {
-            "operator": "like",
-            "value": "phone",
+        "description": {
+            "operator": "%like%",
+            "value": "laptop",
             "type": "string"
         }
     }
 }
 ```
 
----
+**Разница:**
 
-## 📏 BETWEEN фильтры
-
-### `whereBetween` - Диапазон значений
-
-<details>
-<summary><b>Индексированный массив</b></summary>
-
-**GET:**
-
-```http
-GET /api/products?whereBetween[price][]=100&whereBetween[price][]=500
-```
-
-**POST JSON:**
-
-```json
-{
-    "whereBetween": {
-        "price": [
-            100,
-            500
-        ]
-    }
-}
-```
-
-</details>
-
-<details>
-<summary><b>Ассоциативный массив (min/max)</b></summary>
-
-**POST JSON:**
-
-```json
-{
-    "whereBetween": {
-        "price": {
-            "min": 100,
-            "max": 500
-        }
-    }
-}
-```
-
-</details>
-
-<details>
-<summary><b>Ассоциативный массив (from/to)</b></summary>
-
-**POST JSON:**
-
-```json
-{
-    "whereBetween": {
-        "created_at": {
-            "from": "2024-01-01",
-            "to": "2024-12-31"
-        }
-    }
-}
-```
-
-</details>
-
-### Другие BETWEEN варианты
-
-**OR WHERE BETWEEN:**
-
-```http
-GET /api/products?orWhereBetween[price][]=50&orWhereBetween[price][]=200
-```
-
-**WHERE NOT BETWEEN:**
-
-```http
-GET /api/products?whereNotBetween[price][min]=1000&whereNotBetween[price][max]=5000
-```
-
-**OR WHERE NOT BETWEEN:**
-
-```http
-GET /api/products?orWhereNotBetween[stock][]=0&orWhereNotBetween[stock][]=5
-```
-
-<details>
-<summary><b>POST JSON пример</b></summary>
-
-```json
-{
-    "orWhereBetween": {
-        "price": [
-            50,
-            200
-        ]
-    },
-    "whereNotBetween": {
-        "price": {
-            "min": 1000,
-            "max": 5000
-        }
-    },
-    "orWhereNotBetween": {
-        "stock": [
-            0,
-            5
-        ]
-    }
-}
-```
-
-</details>
+- `search` компактнее для множественных полей
+- `search` автоматически добавляет точное совпадение для чисел
+- `where` с `%like%` дает больше контроля (можно использовать разные операторы для каждого поля)
 
 ---
 
-## 🔗 Фильтры связей
+## Заключение
 
-### `whereHas` - Фильтр по существующей связи
+`SearchFilter` предоставляет:
 
-<details>
-<summary><b>Простая проверка существования</b></summary>
+✅ **Простоту** - компактный синтаксис для поиска по множеству полей  
+✅ **Умный поиск** - автоматическое определение числовых значений  
+✅ **Relations** - поддержка вложенных связей через точечную нотацию  
+✅ **Регистронезависимость** - ILIKE для PostgreSQL  
+✅ **Производительность** - использование нативных Laravel методов  
+✅ **Гибкость** - комбинирование с другими фильтрами
 
-**GET:**
+**Используйте SearchFilter для:**
 
-```http
-GET /api/products?whereHas[category]=[]
-```
+- Поиска по каталогу товаров
+- Поиска пользователей по имени/email/телефону
+- Поиска заказов по номеру/статусу
+- Глобального поиска по сайту
 
-**POST JSON:**
+**Не используйте SearchFilter для:**
 
-```json
-{
-    "whereHas": {
-        "category": []
-    }
-}
-```
-
-</details>
-
-<details>
-<summary><b>С условиями на связанную модель</b></summary>
-
-**GET:**
-
-```http
-GET /api/products?whereHas[category][where][name]=Electronics
-```
-
-**POST JSON:**
-
-```json
-{
-    "whereHas": {
-        "category": {
-            "where": {
-                "name": "Electronics"
-            }
-        }
-    }
-}
-```
-
-</details>
-
-<details>
-<summary><b>Вложенные связи</b></summary>
-
-**POST JSON:**
-
-```json
-{
-    "whereHas": {
-        "category": {
-            "whereHas": {
-                "parent": {
-                    "where": {
-                        "name": "Main"
-                    }
-                }
-            }
-        }
-    }
-}
-```
-
-</details>
-
-### ❌ `whereDoesntHave` - Фильтр по отсутствующей связи
-
-**Товары без заказов:**
-
-```http
-GET /api/products?whereDoesntHave[orders]=[]
-```
-
-**Товары без активных заказов:**
-
-```http
-GET /api/products?whereDoesntHave[orders][where][status]=active
-```
-
-**POST JSON:**
-
-```json
-{
-    "whereDoesntHave": {
-        "orders": [],
-        "reviews": {
-            "where": {
-                "rating": {
-                    "operator": "<",
-                    "value": 3
-                }
-            }
-        }
-    }
-}
-```
-
-### Поддерживаемые условия в связях
-
-Внутри `whereHas`/`whereDoesntHave` доступны:
-
-- `where` - базовые условия
-- `orWhere` - OR условия
-- `whereNot` - исключения
-- `whereBetween` - диапазоны
-- `orWhereBetween` - OR диапазоны
-- `whereNotBetween` - исключение диапазонов
-- `orWhereNotBetween` - OR исключение диапазонов
-- `filter` - поиск
-- `whereHas` - вложенные связи
-- `whereDoesntHave` - вложенные исключения
-
----
-
-## 🔍 Поисковый фильтр
-
-### `filter` - Универсальный поиск по полям
-
-Ищет по нескольким полям с использованием ILIKE:
-
-**GET:**
-
-```http
-GET /api/products?filter[name]=phone&filter[sku]=12345
-```
-
-**POST JSON:**
-
-```json
-{
-    "filter": {
-        "name": "phone",
-        "sku": "12345"
-    }
-}
-```
-
----
-
-## 📊 Сортировка
-
-### `sortBy` - Множественная сортировка
-
-**Сортировка по одному полю:**
-
-```http
-GET /api/products?sortBy[0][key]=price&sortBy[0][order]=desc
-```
-
-**Сортировка по нескольким полям:**
-
-```http
-GET /api/products?sortBy[0][key]=category&sortBy[0][order]=asc&sortBy[1][key]=price&sortBy[1][order]=desc
-```
-
-**POST JSON:**
-
-```json
-{
-    "sortBy": [
-        {
-            "key": "category",
-            "order": "asc"
-        },
-        {
-            "key": "price",
-            "order": "desc"
-        }
-    ]
-}
-```
-
-### Сортировка по умолчанию
-
-Если сортировка не указана, используется:
-
-| Параметр        | Значение                                         |
-|-----------------|--------------------------------------------------|
-| **Столбец**     | Первичный ключ модели (обычно `id`)              |
-| **Направление** | `desc` (или из `Model::$DEFAULT_SORT_DIRECTION`) |
-
----
-
-## 📄 Пагинация
-
-### Параметры
-
-**GET:**
-
-```http
-GET /api/products?page=2&itemsPerPage=25
-```
-
-**POST JSON:**
-
-```json
-{
-    "page": 2,
-    "itemsPerPage": 25
-}
-```
-
-### Значения по умолчанию
-
-| Параметр       | Значение по умолчанию          |
-|----------------|--------------------------------|
-| `page`         | `1`                            |
-| `itemsPerPage` | `Model->getPerPage()` или `20` |
-
----
-
-## 🎯 Комплексные примеры
-
-### Пример 1: Поиск товаров с фильтрацией 🛍️
-
-```json
-{
-    "filter": {
-        "name": "phone"
-    },
-    "where": {
-        "status": "active"
-    },
-    "whereBetween": {
-        "price": {
-            "min": 100,
-            "max": 1000
-        }
-    },
-    "whereHas": {
-        "category": {
-            "where": {
-                "name": "Electronics"
-            }
-        }
-    },
-    "sortBy": [
-        {
-            "key": "price",
-            "order": "asc"
-        }
-    ],
-    "page": 1,
-    "itemsPerPage": 20
-}
-```
-
-### Пример 2: Заказы с условиями 📦
-
-```json
-{
-    "where": {
-        "status": {
-            "operator": "in",
-            "value": [
-                "pending",
-                "processing"
-            ]
-        }
-    },
-    "whereBetween": {
-        "created_at": {
-            "from": "2024-01-01",
-            "to": "2024-12-31"
-        }
-    },
-    "whereHas": {
-        "user": {
-            "where": {
-                "role": "customer"
-            }
-        },
-        "items": {
-            "where": {
-                "product_id": 5
-            }
-        }
-    },
-    "sortBy": [
-        {
-            "key": "created_at",
-            "order": "desc"
-        }
-    ]
-}
-```
-
-### Пример 3: Сложные условия с отрицанием ⛔
-
-```json
-{
-    "where": {
-        "status": "active"
-    },
-    "whereNot": {
-        "category_id": {
-            "operator": "in",
-            "value": [
-                3,
-                7
-            ]
-        }
-    },
-    "whereDoesntHave": {
-        "orders": {
-            "where": {
-                "status": "cancelled"
-            }
-        }
-    },
-    "whereNotBetween": {
-        "price": [
-            0,
-            10
-        ]
-    }
-}
-```
-
----
-
-## ⚠️ Advanced Filter (устаревший)
-
-> **Warning:** Этот метод сохранен для обратной совместимости. Рекомендуется использовать `where`/`orWhere`/`whereNot` с
-> операторами.
-
-**Формат:** `[поле, оператор, значение, тип?]`
-
-**GET:**
-
-```http
-GET /api/products?advancedFilters[0][]=price&advancedFilters[0][]=>&advancedFilters[0][]=100
-```
-
-**POST JSON:**
-
-```json
-{
-    "advancedFilters": [
-        [
-            "price",
-            ">",
-            100
-        ],
-        [
-            "name",
-            "like",
-            "%phone%",
-            "string"
-        ]
-    ]
-}
-```
-
----
-
-## 🔄 Алиасы параметров
-
-Поддерживаются snake_case и camelCase:
-
-| snake_case             | camelCase           |
-|------------------------|---------------------|
-| `or_where`             | `orWhere`           |
-| `where_between`        | `whereBetween`      |
-| `or_where_between`     | `orWhereBetween`    |
-| `where_not_between`    | `whereNotBetween`   |
-| `or_where_not_between` | `orWhereNotBetween` |
-| `where_has`            | `whereHas`          |
-| `where_doesnt_have`    | `whereDoesntHave`   |
-| `where_not`            | `whereNot`          |
-
----
-
-## 🏗️ Архитектура
-
-### Основные компоненты
-
-```
-CustomQueryBuilder              # Главный класс
-├── Filters/
-│   ├── WhereFilter            # WHERE условия
-│   ├── OrWhereFilter          # OR WHERE условия
-│   ├── WhereNotFilter         # WHERE NOT условия
-│   ├── WhereBetweenFilter     # WHERE BETWEEN
-│   ├── OrWhereBetweenFilter   # OR WHERE BETWEEN
-│   ├── WhereNotBetweenFilter  # WHERE NOT BETWEEN
-│   ├── OrWhereNotBetweenFilter # OR WHERE NOT BETWEEN
-│   ├── WhereHasFilter         # Фильтр связей (существуют)
-│   ├── WhereDoesntHaveFilter  # Фильтр связей (не существуют)
-│   ├── CustomFieldFilter      # Поиск по полям (ILIKE)
-│   ├── SortFilter             # Сортировка
-│   └── AdvancedFilter         # Устаревший расширенный фильтр
-├── Support/
-│   ├── ConditionFactory       # Создание условий фильтрации
-│   ├── ConditionPayload       # DTO для условия
-│   ├── OperatorExecutor       # Применение операторов к запросу
-│   └── AbstractRelationFilter # Базовый класс для фильтров связей
-└── Enums/
-    └── AdvancedFilterOperator # Enum операторов сравнения
-```
-
-### Принцип работы
-
-```mermaid
-graph LR
-    A[HTTP Request] --> B[getFilteredOptions]
-    B --> C[ConditionFactory]
-    C --> D[Filter Classes]
-    D --> E[OperatorExecutor]
-    E --> F[SQL Query]
-    F --> G[Pagination]
-```
-
-1. **Извлечение параметров** из запроса (`getFilteredOptions`)
-2. **Нормализация** условий через `ConditionFactory`
-3. **Применение фильтров** через соответствующие классы
-4. **Выполнение** через `OperatorExecutor`
-5. **Пагинация** результатов
-
----
-
-## 📝 Примечания
-
-> **💡 Полезные советы:**
-
-- ✅ Все операторы LIKE поддерживают регистронезависимый поиск через `type=string` (использует ILIKE в PostgreSQL)
-- 🔗 Фильтры связей поддерживают неограниченную вложенность
-- 🎯 Можно комбинировать любые фильтры в одном запросе
-- 📦 Все фильтры автоматически группируются в `WHERE (...)` для корректной логики
-- 🌐 **GET и POST запросы работают идентично** - используйте то, что удобнее!
-- 💡 **POST с JSON** - рекомендуется для сложных фильтров и frontend интеграции
-
----
-
-<div align="center">
-
-**[⬆ Вернуться к содержанию](#-содержание)**
-
-Made with ❤️ for Laravel
-
-</div>
+- Точной фильтрации (используйте `where`)
+- Диапазонов (используйте `where_between`)
+- Сложных условий (используйте `where_has` с вложенными фильтрами)
